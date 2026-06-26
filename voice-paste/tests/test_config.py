@@ -8,7 +8,10 @@ def test_defaults():
     assert c.target == "clipboard"
     assert c.duration == 15
     assert c.auto_paste is False
-    assert c.transcription.backend == "openai"
+    assert c.transcription.backend == "whisperx"
+    assert c.transcription.model == "base"
+    assert c.transcription.device == "auto"
+    assert c.transcription.compute_type == "auto"
     assert c.audio.sample_rate == 16000
 
 

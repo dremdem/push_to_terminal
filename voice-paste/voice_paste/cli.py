@@ -41,7 +41,12 @@ def record(
         console.print("[bold]🧠  Transcribing...[/bold]")
         notify.notify("Transcribing...", "voice-paste")
 
-        t = trans_mod.create_transcriber(cfg.transcription.backend, cfg.transcription.model)
+        t = trans_mod.create_transcriber(
+            cfg.transcription.backend,
+            cfg.transcription.model,
+            cfg.transcription.device,
+            cfg.transcription.compute_type,
+        )
         lang = cfg.language if cfg.language != "auto" else None
         text = t.transcribe(wav_path, lang)
         text = postprocess.process(text, terminal_mode=(target == "terminal"))

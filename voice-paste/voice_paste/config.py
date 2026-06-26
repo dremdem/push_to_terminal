@@ -17,8 +17,10 @@ class AudioConfig(BaseModel):
 
 
 class TranscriptionConfig(BaseModel):
-    backend: str = "openai"
-    model: str = "whisper-1"
+    backend: str = "whisperx"
+    model: str = "base"
+    device: str = "auto"        # "auto", "cuda", "cpu"
+    compute_type: str = "auto"  # "auto", "float16", "int8"
 
 
 class PostprocessConfig(BaseModel):

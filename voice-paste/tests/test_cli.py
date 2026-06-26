@@ -70,10 +70,9 @@ def test_stop_calls_send_stop(mocker):
 # ── record (fixed-duration) ───────────────────────────────────────────────────
 
 def test_record_runs_full_pipeline(mocker, tmp_path):
-    mocker.patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"})
     mocker.patch("voice_paste.recorder.find_recorder", return_value="pw-record")
     mocker.patch("voice_paste.recorder.record_fixed")
-    mock_transcribe = mocker.patch("voice_paste.transcriber.OpenAITranscriber.transcribe", return_value="hello")
+    mock_transcribe = mocker.patch("voice_paste.transcriber.WhisperXTranscriber.transcribe", return_value="hello")
     mocker.patch("voice_paste.clipboard.copy")
     mocker.patch("voice_paste.notify.notify")
     result = runner.invoke(app, ["record", "--duration", "5"])
@@ -83,10 +82,9 @@ def test_record_runs_full_pipeline(mocker, tmp_path):
 
 def test_record_never_executes_commands(mocker):
     """Safety: record must not press Enter or run shell commands."""
-    mocker.patch.dict("os.environ", {"OPENAI_API_KEY": "sk-test"})
     mocker.patch("voice_paste.recorder.find_recorder", return_value="pw-record")
     mocker.patch("voice_paste.recorder.record_fixed")
-    mocker.patch("voice_paste.transcriber.OpenAITranscriber.transcribe", return_value="rm -rf /tmp")
+    mocker.patch("voice_paste.transcriber.WhisperXTranscriber.transcribe", return_value="rm -rf /tmp")
     mock_copy = mocker.patch("voice_paste.clipboard.copy")
     mocker.patch("voice_paste.notify.notify")
     runner.invoke(app, ["record", "--duration", "5"])

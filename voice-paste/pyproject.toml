@@ -11,13 +11,13 @@ dependencies = [
     "typer>=0.12",
     "rich>=13",
     "pydantic>=2",
-    "openai>=1",
     "tomli>=2; python_version < '3.11'",
 ]
 
 [project.optional-dependencies]
+whisperx = ["whisperx>=3"]
+openai = ["openai>=1"]
 sounddevice = ["sounddevice>=0.4", "soundfile>=0.12"]
-faster-whisper = ["faster-whisper>=1"]
 
 [project.scripts]
 voice-paste = "voice_paste.cli:app"

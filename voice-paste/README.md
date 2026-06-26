@@ -32,11 +32,22 @@ uv sync
 uv run voice-paste --help
 ```
 
-### 3. OpenAI API key (default backend)
+### 3. Install whisperx (local transcription, GPU-accelerated)
 
 ```bash
+# PyTorch with CUDA (for NVIDIA GPU — replace cu121 with your CUDA version):
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# whisperx:
+pip install whisperx
+```
+
+No API key required. The model is downloaded automatically on first use (~150 MB for `base`).
+
+**Optional: OpenAI fallback** (cloud, requires key):
+```bash
+pip install openai
 export OPENAI_API_KEY=sk-...
-# Add to ~/.bashrc or ~/.zshrc to persist.
 ```
 
 ---
@@ -92,8 +103,10 @@ device      = "default"
 sample_rate = 16000
 
 [transcription]
-backend = "openai"
-model   = "whisper-1"
+backend      = "whisperx"  # "whisperx" (default) or "openai"
+model        = "base"      # tiny / base / small / medium / large-v3
+device       = "auto"      # auto / cuda / cpu
+compute_type = "auto"      # auto → float16 on GPU, int8 on CPU
 
 [postprocess]
 terminal_single_line = true

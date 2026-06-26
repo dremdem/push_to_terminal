@@ -84,6 +84,8 @@ def run(config) -> None:
     t = trans_mod.create_transcriber(
         config.transcription.backend,
         config.transcription.model,
+        config.transcription.device,
+        config.transcription.compute_type,
     )
     lang = config.language if config.language != "auto" else None
     text = t.transcribe(wav_path, lang)
