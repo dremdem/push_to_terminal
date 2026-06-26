@@ -20,7 +20,7 @@ try:
 except ImportError:
     _HAS_TRAY = False
 
-from voice_paste import clipboard, notify, recorder
+from voice_paste import clipboard, hotkey as hotkey_mod, notify, recorder
 from voice_paste.config import Config, default_config_path, load_config
 from voice_paste.transcriber import create_transcriber
 
@@ -202,6 +202,13 @@ class TrayApp:
                 radio=True,
             )
 
+        def hotkey_label(item: object) -> str:
+            try:
+                b = hotkey_mod.current_binding()
+                return f"Hotkey: {b}" if b else "Hotkey: not set"
+            except Exception:
+                return "Hotkey: unavailable"
+
         def last_text_label(item: object) -> str:
             if self.last_text:
                 preview = self.last_text[:40] + ("…" if len(self.last_text) > 40 else "")
@@ -222,6 +229,8 @@ class TrayApp:
                 "Backend",
                 _pystray.Menu(*[backend_item(b) for b in BACKENDS]),
             ),
+            _pystray.Menu.SEPARATOR,
+            _pystray.MenuItem(hotkey_label, None, enabled=False),
             _pystray.Menu.SEPARATOR,
             _pystray.MenuItem(last_text_label, None, enabled=False),
             _pystray.MenuItem("Copy Again", lambda icon, item: self.copy_again()),

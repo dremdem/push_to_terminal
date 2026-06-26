@@ -67,6 +67,25 @@ def test_stop_calls_send_stop(mocker):
     mock_send.assert_called_once()
 
 
+# ── toggle ───────────────────────────────────────────────────────────────────
+
+def test_toggle_starts_when_idle(mocker):
+    mocker.patch("voice_paste.daemon.is_running", side_effect=[False, True])
+    mock_spawn = mocker.patch("voice_paste.daemon.spawn")
+    mocker.patch("time.sleep")
+    result = runner.invoke(app, ["toggle"])
+    assert result.exit_code == 0
+    mock_spawn.assert_called_once()
+
+
+def test_toggle_stops_when_recording(mocker):
+    mocker.patch("voice_paste.daemon.is_running", return_value=True)
+    mock_send = mocker.patch("voice_paste.daemon.send_stop")
+    result = runner.invoke(app, ["toggle"])
+    assert result.exit_code == 0
+    mock_send.assert_called_once()
+
+
 # ── record (fixed-duration) ───────────────────────────────────────────────────
 
 def test_record_runs_full_pipeline(mocker, tmp_path):

@@ -233,23 +233,36 @@ terminal_single_line = true
 
 ## GNOME hotkey setup
 
-### Push-to-talk (recommended)
+### Automatic (v0.5, recommended)
 
-Open **Settings → Keyboard → Keyboard Shortcuts → View and Customize Shortcuts → Custom Shortcuts** and add two shortcuts:
+Register the shortcut in one command — no GUI needed:
+
+```bash
+# Push-to-talk on Ctrl+Alt+Space (press to start, press again to stop):
+voice-paste hotkey set ctrl+alt+space
+
+# Fixed-duration recording instead:
+voice-paste hotkey set ctrl+alt+space --command record
+
+# Check what's registered:
+voice-paste hotkey show
+
+# Remove:
+voice-paste hotkey unset
+```
+
+The shortcut appears immediately in **GNOME Settings → Keyboard → Custom Shortcuts** and the tray menu shows the active binding.
+
+### Manual (alternative)
+
+Open **Settings → Keyboard → Keyboard Shortcuts → Custom Shortcuts** and add:
 
 | Name | Command | Suggested key |
 |------|---------|---------------|
-| Voice Paste: Start | `voice-paste start --language auto` | `Ctrl+Alt+Space` |
-| Voice Paste: Stop  | `voice-paste stop` | `Ctrl+Alt+Space` (or a second key) |
+| Voice Paste: Start | `voice-paste start` | `Ctrl+Alt+Space` |
+| Voice Paste: Stop  | `voice-paste stop`  | `Ctrl+Alt+Space` |
 
-> **Tip:** If you bind both start and stop to the same key, the second press will reach the `stop` command because `start` checks whether the daemon is already running.
-
-### Fixed-duration (simpler)
-
-| Name | Command | Suggested key |
-|------|---------|---------------|
-| Voice Paste | `voice-paste record --duration 15 --target clipboard` | `Ctrl+Alt+Space` |
-| Voice Paste (terminal) | `voice-paste record --duration 15 --target terminal` | `Ctrl+Alt+T` |
+> **Tip:** Binding start and stop to the same key works — `start` detects if the daemon is already running and acts as a no-op.
 
 ---
 
@@ -277,7 +290,8 @@ Auto-paste (`--auto-paste` via `ydotool`) is planned for v0.3 and requires extra
 | v0.1 | Fixed-duration recording, OpenAI transcription, clipboard copy ([#1](https://github.com/dremdem/push_to_terminal/issues/1)) |
 | **v0.2** | **Push-to-talk via Unix socket daemon (this release)** ([#2](https://github.com/dremdem/push_to_terminal/issues/2)) |
 | **v0.3** | **Optional auto-paste with `ydotool`/`xdotool` (this release)** ([#3](https://github.com/dremdem/push_to_terminal/issues/3)) |
-| **v0.4** | **System-tray GUI with language/backend selectors (this release)** ([#4](https://github.com/dremdem/push_to_terminal/issues/4)) |
+| v0.4 | System-tray GUI with language/backend selectors ([#4](https://github.com/dremdem/push_to_terminal/issues/4)) |
+| **v0.5** | **Hotkey binding via GNOME gsettings (this release)** ([#9](https://github.com/dremdem/push_to_terminal/issues/9)) |
 
 ---
 
