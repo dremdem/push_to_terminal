@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "voice-paste"
-version = "0.2.0"
+version = "0.4.0"
 description = "Ubuntu voice-to-clipboard utility with push-to-talk"
 requires-python = ">=3.10,<3.14"
 dependencies = [
@@ -21,9 +21,14 @@ dependencies = [
 [project.optional-dependencies]
 openai = ["openai>=1"]
 sounddevice = ["sounddevice>=0.4", "soundfile>=0.12"]
+tray = [
+    "pillow>=12.2.0",
+    "pystray>=0.19.5",
+]
 
 [project.scripts]
 voice-paste = "voice_paste.cli:app"
+voice-paste-tray = "voice_paste.tray:main"
 
 [dependency-groups]
 dev = [

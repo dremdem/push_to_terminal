@@ -120,6 +120,43 @@ voice-paste record --auto-paste             # copy + auto-inject Ctrl+V (opt-in)
 
 Then paste with `Ctrl+V` (browser/chat) or `Ctrl+Shift+V` (terminal).
 
+### System tray (v0.4)
+
+```bash
+# Install tray extra first:
+uv sync --extra tray
+
+# Launch:
+voice-paste-tray
+```
+
+The tray icon appears in the GNOME top bar (requires XWayland or AppIndicator3):
+```bash
+sudo apt install gir1.2-appindicator3-0.1   # pure Wayland, optional
+```
+
+**Icon colours:**
+
+| Colour | State |
+|--------|-------|
+| Green | Idle — click icon or menu → Record to start |
+| Red | Recording |
+| Amber | Transcribing |
+
+**Menu items:**
+
+- **Record** — start a fixed-duration recording (uses `duration` from config)
+- **Language** — submenu: auto / en / ru (saved to config on change)
+- **Backend** — submenu: whisperx / docker / openai (saved to config on change)
+- **Last:** … — preview of the most recently transcribed text (read-only)
+- **Copy Again** — re-copy the last transcription to clipboard
+- **Retry** — re-transcribe the last recorded audio file
+- **Quit** — exit the tray app
+
+Config changes made via the menu are written immediately to `~/.config/voice-paste/config.toml`.
+
+---
+
 ### Auto-paste (v0.3, opt-in)
 
 By default voice-paste only copies to clipboard — you paste manually.  
@@ -242,7 +279,7 @@ Auto-paste (`--auto-paste` via `ydotool`) is planned for v0.3 and requires extra
 | v0.1 | Fixed-duration recording, OpenAI transcription, clipboard copy ([#1](https://github.com/dremdem/push_to_terminal/issues/1)) |
 | **v0.2** | **Push-to-talk via Unix socket daemon (this release)** ([#2](https://github.com/dremdem/push_to_terminal/issues/2)) |
 | **v0.3** | **Optional auto-paste with `ydotool`/`xdotool` (this release)** ([#3](https://github.com/dremdem/push_to_terminal/issues/3)) |
-| v0.4 | System-tray GUI ([#4](https://github.com/dremdem/push_to_terminal/issues/4)) |
+| **v0.4** | **System-tray GUI with language/backend selectors (this release)** ([#4](https://github.com/dremdem/push_to_terminal/issues/4)) |
 
 ---
 
