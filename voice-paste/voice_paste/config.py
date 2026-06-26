@@ -17,7 +17,7 @@ class AudioConfig(BaseModel):
 
 
 class TranscriptionConfig(BaseModel):
-    backend: str = "whisperx"
+    backend: str = "whisperx"   # "whisperx" (local CPU), "docker" (GPU via container), "openai"
     model: str = "base"
     device: str = "auto"        # "auto", "cuda", "cpu"
     compute_type: str = "auto"  # "auto" → float16 on GPU, int8 on CPU

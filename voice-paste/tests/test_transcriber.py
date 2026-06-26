@@ -1,5 +1,16 @@
+import json
+import socket
+import struct
+import threading
+from pathlib import Path
+
 import pytest
-from voice_paste.transcriber import WhisperXTranscriber, OpenAITranscriber, create_transcriber
+from voice_paste.transcriber import (
+    DockerTranscriber,
+    OpenAITranscriber,
+    WhisperXTranscriber,
+    create_transcriber,
+)
 
 
 # ── WhisperXTranscriber ───────────────────────────────────────────────────────
@@ -237,3 +248,71 @@ def test_create_transcriber_openai():
 def test_create_transcriber_raises_for_unknown_backend():
     with pytest.raises(ValueError, match="Unknown"):
         create_transcriber("unknown-backend")
+
+
+# ── DockerTranscriber ─────────────────────────────────────────────────────────
+
+def _serve_once(sock_path: Path, response: dict) -> threading.Thread:
+    """Start a one-shot Unix socket server that returns `response` to one client."""
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(sock_path))
+    server.listen(1)
+
+    def _run():
+        conn, _ = server.accept()
+        with conn:
+            # consume request (4B hdr_len + header + 4B wav_len + wav)
+            hdr_len = struct.unpack(">I", conn.recv(4))[0]
+            conn.recv(hdr_len)
+            wav_len = struct.unpack(">I", conn.recv(4))[0]
+            if wav_len:
+                conn.recv(wav_len)
+            # send response
+            data = json.dumps(response).encode()
+            conn.sendall(struct.pack(">I", len(data)) + data)
+        server.close()
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+    return t
+
+
+def test_docker_transcriber_returns_text(tmp_path):
+    sock_path = tmp_path / "test.sock"
+    wav = tmp_path / "audio.wav"
+    wav.write_bytes(b"\x00" * 16)
+
+    t = _serve_once(sock_path, {"text": "hello docker"})
+    result = DockerTranscriber(sock_path=sock_path).transcribe(wav, "en")
+    t.join(timeout=3)
+
+    assert result == "hello docker"
+
+
+def test_docker_transcriber_raises_on_error_response(tmp_path):
+    sock_path = tmp_path / "test.sock"
+    wav = tmp_path / "audio.wav"
+    wav.write_bytes(b"\x00" * 16)
+
+    t = _serve_once(sock_path, {"error": "GPU exploded"})
+    with pytest.raises(RuntimeError, match="GPU exploded"):
+        DockerTranscriber(sock_path=sock_path).transcribe(wav, "en")
+    t.join(timeout=3)
+
+
+def test_docker_transcriber_raises_when_socket_missing(tmp_path):
+    sock_path = tmp_path / "nonexistent.sock"
+    wav = tmp_path / "audio.wav"
+    wav.write_bytes(b"\x00" * 8)
+
+    t = DockerTranscriber(sock_path=sock_path)
+    t._CONNECT_TIMEOUT = 0.1  # don't wait 30s in tests
+    with pytest.raises(RuntimeError, match="socket not found"):
+        t.transcribe(wav, "auto")
+
+
+def test_create_transcriber_docker(tmp_path):
+    sock = tmp_path / "s.sock"
+    t = create_transcriber("docker", docker_sock=sock)
+    assert isinstance(t, DockerTranscriber)
+    assert t._sock_path == sock

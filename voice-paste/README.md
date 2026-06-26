@@ -71,6 +71,38 @@ uv sync --extra openai
 export OPENAI_API_KEY=sk-...
 ```
 
+### GPU inference via Docker (recommended for NVIDIA GPUs)
+
+The host-installed `ctranslate2 4.4.0` (pinned by `whisperx 3.4.5`) is broken on CUDA 12.4.
+The Docker container uses `nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04` + `whisperx 3.8.5`
+which has proper cuDNN 8 split libraries — GPU inference works correctly there.
+
+**Prerequisites:** Docker + the [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html).
+
+```bash
+# Build and start the container (runs in background, model stays loaded):
+cd voice-paste
+docker compose up -d
+
+# Switch voice-paste to use the Docker backend:
+mkdir -p ~/.config/voice-paste
+cat >> ~/.config/voice-paste/config.toml <<'EOF'
+[transcription]
+backend = "docker"
+EOF
+```
+
+The container mounts `~/.cache/huggingface` and `~/.cache/torch` so models are shared with the
+host and not re-downloaded. The Unix socket is at `~/.local/state/voice-paste/docker-transcribe.sock`.
+
+```bash
+# Stop the container:
+docker compose down
+
+# View logs:
+docker compose logs -f
+```
+
 ---
 
 ## Usage
@@ -124,7 +156,7 @@ device      = "default"
 sample_rate = 16000
 
 [transcription]
-backend      = "whisperx"  # "whisperx" (default) or "openai"
+backend      = "whisperx"  # "whisperx" (local CPU), "docker" (GPU container), "openai"
 model        = "base"      # tiny / base / small / medium / large-v3
 device       = "auto"      # auto / cuda / cpu
 compute_type = "auto"      # auto → float16 on GPU, int8 on CPU

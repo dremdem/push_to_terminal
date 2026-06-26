@@ -158,12 +158,81 @@ class OpenAITranscriber(BaseTranscriber):
         return result.text
 
 
+class DockerTranscriber(BaseTranscriber):
+    """Transcription via the persistent Docker whisperx service (GPU inference).
+
+    The service runs in a Docker container that keeps the model warm in memory.
+    Communication is via a Unix socket using a simple length-prefixed JSON protocol.
+
+    Start the service with:
+        docker compose up -d          (from voice-paste/)
+    """
+
+    DEFAULT_SOCK = Path.home() / ".local" / "state" / "voice-paste" / "docker-transcribe.sock"
+    _CONNECT_TIMEOUT = 30.0  # seconds to wait for socket to appear
+
+    def __init__(self, sock_path: Path | None = None) -> None:
+        self._sock_path = sock_path or self.DEFAULT_SOCK
+
+    def _wait_for_socket(self) -> None:
+        import time
+        deadline = time.monotonic() + self._CONNECT_TIMEOUT
+        while time.monotonic() < deadline:
+            if self._sock_path.exists():
+                return
+            time.sleep(0.5)
+        raise RuntimeError(
+            f"Docker transcription service socket not found at {self._sock_path}.\n"
+            "Start the service with:  docker compose up -d"
+        )
+
+    def _call(self, wav_bytes: bytes, language: str) -> str:
+        import json
+        import socket
+        import struct
+
+        self._wait_for_socket()
+        header = json.dumps({"language": language}).encode()
+        hdr_frame = struct.pack(">I", len(header)) + header
+        wav_frame = struct.pack(">I", len(wav_bytes)) + wav_bytes
+
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sock.settimeout(120.0)
+        try:
+            sock.connect(str(self._sock_path))
+            sock.sendall(hdr_frame + wav_frame)
+            resp_len = struct.unpack(">I", _recv_exact_sock(sock, 4))[0]
+            resp = json.loads(_recv_exact_sock(sock, resp_len))
+        finally:
+            sock.close()
+
+        if "error" in resp:
+            raise RuntimeError(f"Docker transcription error: {resp['error']}")
+        return resp.get("text", "")
+
+    def transcribe(self, audio_path: Path, language: str | None = None) -> str:
+        wav_bytes = audio_path.read_bytes()
+        lang = language or "auto"
+        return self._call(wav_bytes, lang)
+
+
+def _recv_exact_sock(sock, n: int) -> bytes:
+    buf = b""
+    while len(buf) < n:
+        chunk = sock.recv(n - len(buf))
+        if not chunk:
+            raise EOFError("Docker service closed connection mid-response")
+        buf += chunk
+    return buf
+
+
 def create_transcriber(
     backend: str = "whisperx",
     model: str = "base",
     device: str = "auto",
     compute_type: str = "auto",
     vad_method: str = "silero",
+    docker_sock: Path | None = None,
 ) -> BaseTranscriber:
     if backend == "whisperx":
         return WhisperXTranscriber(
@@ -171,4 +240,6 @@ def create_transcriber(
         )
     if backend == "openai":
         return OpenAITranscriber(model=model)
+    if backend == "docker":
+        return DockerTranscriber(sock_path=docker_sock)
     raise ValueError(f"Unknown transcription backend: {backend!r}")
