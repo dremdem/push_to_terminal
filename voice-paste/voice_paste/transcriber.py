@@ -48,18 +48,16 @@ class WhisperXTranscriber(BaseTranscriber):
         # pyannote VAD checkpoints pickle many omegaconf types (ListConfig,
         # DictConfig, ContainerMetadata, value nodes, …).  Register the whole
         # omegaconf package so we never hit this one-at-a-time.
-        # Use sys.modules.get instead of `import torch` — whisperx always
-        # imports torch before this runs, so it is already cached; using
-        # `import torch` here would let mock.patch teardown remove torch from
-        # sys.modules and corrupt the C extension state in later tests.
-        import sys
-        torch = sys.modules.get("torch")
-        if torch is None:
-            return
+        # NOTE: whisperx lazy-loads torch, so it is NOT in sys.modules after
+        # `import whisperx`.  We must `import torch` here to guarantee it is
+        # loaded before add_safe_globals is called.  Test isolation is handled
+        # by tests/conftest.py which pre-loads torch at session start, ensuring
+        # mock.patch.dict teardown restores rather than deletes it.
         try:
             import importlib
             import inspect
             import pkgutil
+            import torch
             import omegaconf
 
             classes: set = set()
