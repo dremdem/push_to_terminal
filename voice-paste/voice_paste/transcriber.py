@@ -42,16 +42,35 @@ class WhisperXTranscriber(BaseTranscriber):
             return compute_type
         return "float16" if self._device == "cuda" else "int8"
 
+    @staticmethod
+    def _allow_omegaconf_globals() -> None:
+        # PyTorch 2.6 changed weights_only default to True in torch.load.
+        # pyannote VAD checkpoints embed omegaconf types; allowlist them so
+        # the model loads without reverting to the insecure weights_only=False.
+        # Use sys.modules.get instead of `import torch` — whisperx always
+        # imports torch before this runs, so it's already cached; using
+        # `import torch` here would let mock.patch remove torch from sys.modules
+        # during test teardown and corrupt torch's C extension state.
+        import sys
+        torch = sys.modules.get("torch")
+        if torch is None:
+            return
+        try:
+            from omegaconf.dictconfig import DictConfig
+            from omegaconf.listconfig import ListConfig
+            torch.serialization.add_safe_globals([ListConfig, DictConfig])
+        except (ImportError, AttributeError):
+            pass  # omegaconf missing or PyTorch < 2.6 — nothing to do
+
     def transcribe(self, audio_path: Path, language: str | None = None) -> str:
         try:
             import whisperx
         except ImportError:
             raise RuntimeError(
                 "whisperx is not installed.\n"
-                "Install (GPU):  pip install torch torchvision torchaudio "
-                "--index-url https://download.pytorch.org/whl/cu121 && pip install whisperx\n"
-                "Install (CPU):  pip install whisperx"
+                "Run:  uv sync  (torch + whisperx are declared in pyproject.toml)"
             )
+        self._allow_omegaconf_globals()
         if self._model is None:
             self._model = whisperx.load_model(
                 self._model_name,
