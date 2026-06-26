@@ -35,23 +35,32 @@ PyTorch CUDA index automatically.
 
 No API key required. The whisperx model is downloaded on first use (~150 MB for `base`).
 
-### 3. Fix ctranslate2 execstack (Linux kernel 6.6+)
+### 3. Fix ctranslate2 CUDA library issues (Linux kernel 6.6+ / CUDA 12)
 
-On modern Ubuntu kernels (6.6+, including 7.x), ctranslate2 4.x ships a
-shared library with an executable-stack flag that the kernel now refuses.
+ctranslate2 4.x has two issues on modern Ubuntu / CUDA 12 setups.
 Run this **once after every `uv sync`**:
 
 ```bash
-uv run python scripts/fix_execstack.py
+uv run python scripts/fix_cuda_libs.py
 ```
 
 Expected output:
 ```
-✅  patched  libctranslate2-d3638643.so.4.4.0
-1 file(s) patched. ctranslate2 should now load correctly.
+ctranslate2.libs: .venv/lib/python3.12/site-packages/ctranslate2.libs
+  execstack patched: libctranslate2-d3638643.so.4.4.0
+  1 file(s) had execstack cleared.
+  6 symlink(s) created.
+
+Done. ctranslate2 should now load correctly on CUDA 12 / kernel 6.6+.
 ```
 
-This patches the ELF binary in-place using only Python — no system tools needed.
+What it fixes (no system tools required, Python-only):
+- **execstack** — ctranslate2 ships with GNU_STACK marked RWE; kernel 6.6+ refuses it.
+  Fixed by clearing the execute bit in the ELF header in-place.
+- **cuDNN 8 sub-libraries** — ctranslate2 bundles a consolidated cuDNN 8.9.7 (all ops
+  in one `.so`) but cuDNN 8's runtime loader still tries to `dlopen` the historical
+  split names (`libcudnn_ops_infer.so.8`, etc.).  Fixed by creating symlinks for each
+  expected name pointing at the bundled file.
 
 **Optional: OpenAI cloud fallback** (needs key):
 ```bash
