@@ -97,6 +97,24 @@ def start(
 
 
 @app.command()
+def toggle() -> None:
+    """Start recording if idle, stop if already recording."""
+    if daemon.is_running():
+        daemon.send_stop()
+        console.print("[green]⏹  Stopped. Transcription in progress...[/green]")
+    else:
+        cfg = load_config()
+        daemon.spawn(language=cfg.language, target=cfg.target, auto_paste=cfg.auto_paste)
+        for _ in range(20):
+            time.sleep(0.1)
+            if daemon.is_running():
+                console.print("[green]🎙  Recording started.[/green]")
+                return
+        console.print("[red]Daemon did not start.[/red]")
+        raise typer.Exit(1)
+
+
+@app.command()
 def stop() -> None:
     """Stop push-to-talk recording and transcribe."""
     if not daemon.is_running():
