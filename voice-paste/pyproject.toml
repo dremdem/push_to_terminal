@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "voice-paste"
+version = "0.2.0"
+description = "Ubuntu voice-to-clipboard utility with push-to-talk"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.12",
+    "rich>=13",
+    "pydantic>=2",
+    "openai>=1",
+    "tomli>=2; python_version < '3.11'",
+]
+
+[project.optional-dependencies]
+sounddevice = ["sounddevice>=0.4", "soundfile>=0.12"]
+faster-whisper = ["faster-whisper>=1"]
+
+[project.scripts]
+voice-paste = "voice_paste.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-mock>=3",
+    "pytest-cov>=5",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
