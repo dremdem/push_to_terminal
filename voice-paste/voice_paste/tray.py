@@ -197,7 +197,7 @@ class TrayApp:
             return "Last: —"
 
         return _pystray.Menu(
-            _pystray.MenuItem("Record", lambda icon, item: self._record_in_thread(), default=True),
+            _pystray.MenuItem("Record", lambda icon, item: self._record_in_thread()),
             _pystray.Menu.SEPARATOR,
             _pystray.MenuItem(
                 "Language",
