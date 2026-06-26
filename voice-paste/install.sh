@@ -26,12 +26,22 @@ echo "==> Installing Python dependencies..."
 cd "$SCRIPT_DIR"
 uv sync --extra tray
 
+echo "==> Linking binaries to ~/.local/bin ..."
+mkdir -p "$HOME/.local/bin"
+ln -sf "$SCRIPT_DIR/.venv/bin/voice-paste"      "$HOME/.local/bin/voice-paste"
+ln -sf "$SCRIPT_DIR/.venv/bin/voice-paste-tray" "$HOME/.local/bin/voice-paste-tray"
+
+# Ensure ~/.local/bin is on PATH for the rest of this script
+export PATH="$HOME/.local/bin:$PATH"
+
 echo "==> Installing desktop entry..."
-uv run voice-paste install --autostart
+voice-paste install --autostart
 
 echo ""
 echo "Done! voice-paste is installed."
 echo ""
-echo "  Launch:  search 'Voice Paste' in GNOME Activities"
-echo "  Hotkey:  uv run voice-paste hotkey set ctrl+alt+shift+p"
-echo "  Tray:    uv run voice-paste-tray"
+echo "  Launch:  search 'Voice Paste' in GNOME Activities (or run: voice-paste-tray)"
+echo "  Hotkey:  voice-paste hotkey set ctrl+alt+shift+p"
+echo ""
+echo "  If 'voice-paste' is not found in a new terminal, add this to ~/.zshrc or ~/.bashrc:"
+echo "    export PATH=\"\$HOME/.local/bin:\$PATH\""
