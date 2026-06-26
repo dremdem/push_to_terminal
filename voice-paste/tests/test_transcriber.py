@@ -4,13 +4,13 @@ from voice_paste.transcriber import WhisperXTranscriber, OpenAITranscriber, crea
 
 # ── WhisperXTranscriber ───────────────────────────────────────────────────────
 
-def test_whisperx_transcribe_calls_allow_omegaconf_globals(mocker, tmp_path):
-    """transcribe() must invoke _allow_omegaconf_globals() before loading the model."""
+def test_whisperx_transcribe_patches_torch_load(mocker, tmp_path):
+    """transcribe() must call _patch_torch_load() before loading the model."""
     mock_wx = mocker.MagicMock()
     mock_wx.load_audio.return_value = b"audio"
     mock_wx.load_model.return_value.transcribe.return_value = {"segments": [{"text": "x"}]}
     mocker.patch.dict("sys.modules", {"whisperx": mock_wx})
-    spy = mocker.patch.object(WhisperXTranscriber, "_allow_omegaconf_globals")
+    spy = mocker.patch.object(WhisperXTranscriber, "_patch_torch_load")
 
     t = WhisperXTranscriber(device="cpu", compute_type="int8")
     wav = tmp_path / "test.wav"
@@ -20,25 +20,35 @@ def test_whisperx_transcribe_calls_allow_omegaconf_globals(mocker, tmp_path):
     spy.assert_called_once()
 
 
-def test_allow_omegaconf_globals_registers_omegaconf_types(mocker):
-    """_allow_omegaconf_globals allowlists the full set of omegaconf classes.
+def test_patch_torch_load_defaults_weights_only_to_false():
+    """_patch_torch_load wraps torch.load so weights_only defaults to False.
 
-    Uses a mock torch in sys.modules to avoid importing the real torch C
-    extension here (which would be cached, then removed by mock.patch teardown,
-    corrupting later tests that try to re-import torch).
+    PyTorch 2.6 changed the default to True; pyannote checkpoints contain
+    arbitrary globals that can't be enumerated in advance, so we revert the
+    default for callers that don't explicitly set weights_only.
     """
-    mock_torch = mocker.MagicMock()
-    mocker.patch.dict("sys.modules", {"torch": mock_torch})
+    import torch
 
-    WhisperXTranscriber._allow_omegaconf_globals()
+    original_load = torch.load
+    captured_kwargs: list = []
 
-    mock_torch.serialization.add_safe_globals.assert_called_once()
-    registered = mock_torch.serialization.add_safe_globals.call_args[0][0]
-    type_names = {c.__name__ for c in registered}
-    # These are the types pyannote checkpoints are known to embed.
-    assert "ListConfig" in type_names
-    assert "DictConfig" in type_names
-    assert "ContainerMetadata" in type_names
+    def _fake_load(*args, **kwargs):
+        captured_kwargs.append(dict(kwargs))
+
+    try:
+        torch.load = _fake_load  # type: ignore[assignment]
+        WhisperXTranscriber._patch_torch_load()
+        assert getattr(torch.load, "_whisperx_patched", False)
+
+        torch.load("some_path")
+        assert captured_kwargs[-1].get("weights_only") is False, \
+            "no explicit weights_only should default to False"
+
+        torch.load("some_path", weights_only=True)
+        assert captured_kwargs[-1].get("weights_only") is True, \
+            "explicit weights_only=True must be preserved"
+    finally:
+        torch.load = original_load
 
 
 def test_whisperx_raises_if_not_installed(mocker, tmp_path):

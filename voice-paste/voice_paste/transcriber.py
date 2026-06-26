@@ -43,39 +43,30 @@ class WhisperXTranscriber(BaseTranscriber):
         return "float16" if self._device == "cuda" else "int8"
 
     @staticmethod
-    def _allow_omegaconf_globals() -> None:
-        # PyTorch 2.6 changed weights_only default to True in torch.load.
-        # pyannote VAD checkpoints pickle many omegaconf types (ListConfig,
-        # DictConfig, ContainerMetadata, value nodes, …).  Register the whole
-        # omegaconf package so we never hit this one-at-a-time.
-        # NOTE: whisperx lazy-loads torch, so it is NOT in sys.modules after
-        # `import whisperx`.  We must `import torch` here to guarantee it is
-        # loaded before add_safe_globals is called.  Test isolation is handled
-        # by tests/conftest.py which pre-loads torch at session start, ensuring
-        # mock.patch.dict teardown restores rather than deletes it.
+    def _patch_torch_load() -> None:
+        # PyTorch 2.6 changed the weights_only default from False → True.
+        # The pyannote VAD checkpoint (used by whisperx) was pickled before
+        # this change and contains arbitrary globals (omegaconf types, typing
+        # specials, …).  Enumerating every type is a losing battle — the list
+        # changes across pyannote versions.
+        # Solution: restore the pre-2.6 behaviour for calls that don't
+        # explicitly set weights_only.  The checkpoint is from HuggingFace
+        # (trusted source), so weights_only=False is safe here.
+        # This is exactly what PyTorch recommends as Option 1 in the error.
         try:
-            import importlib
-            import inspect
-            import pkgutil
             import torch
-            import omegaconf
+            if getattr(torch.load, "_whisperx_patched", False):
+                return  # already applied; don't double-wrap
+            _orig = torch.load
 
-            classes: set = set()
-            for _, modname, _ in pkgutil.walk_packages(
-                path=omegaconf.__path__,
-                prefix=omegaconf.__name__ + ".",
-                onerror=lambda _: None,
-            ):
-                try:
-                    mod = importlib.import_module(modname)
-                except Exception:
-                    continue
-                for _, obj in inspect.getmembers(mod, inspect.isclass):
-                    if getattr(obj, "__module__", "").startswith("omegaconf"):
-                        classes.add(obj)
-            torch.serialization.add_safe_globals(list(classes))
+            def _load(*args, **kwargs):
+                kwargs.setdefault("weights_only", False)
+                return _orig(*args, **kwargs)
+
+            _load._whisperx_patched = True  # type: ignore[attr-defined]
+            torch.load = _load
         except (ImportError, AttributeError):
-            pass  # omegaconf missing or PyTorch < 2.6 — nothing to do
+            pass  # PyTorch not installed or too old to matter
 
     def transcribe(self, audio_path: Path, language: str | None = None) -> str:
         try:
@@ -85,7 +76,7 @@ class WhisperXTranscriber(BaseTranscriber):
                 "whisperx is not installed.\n"
                 "Run:  uv sync  (torch + whisperx are declared in pyproject.toml)"
             )
-        self._allow_omegaconf_globals()
+        self._patch_torch_load()
         if self._model is None:
             self._model = whisperx.load_model(
                 self._model_name,
