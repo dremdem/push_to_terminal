@@ -149,6 +149,47 @@ def config_path() -> None:
     console.print(str(default_config_path()))
 
 
+hotkey_app = typer.Typer(help="Manage the global GNOME keyboard shortcut.")
+app.add_typer(hotkey_app, name="hotkey")
+
+
+@hotkey_app.command("set")
+def hotkey_set(
+    binding: str = typer.Argument(..., help="Binding, e.g. ctrl+alt+space"),
+    command: str = typer.Option("start", "--command", "-c", help="'start' (push-to-talk) or 'record' (fixed)"),
+) -> None:
+    """Register a global GNOME keyboard shortcut for voice-paste."""
+    from voice_paste import hotkey as hk
+
+    cmd = f"voice-paste {command}"
+    hk.register(binding, cmd)
+    gnome_fmt = hk.binding_to_gnome(binding)
+    console.print(f"[green]✅  Hotkey registered:[/green] {gnome_fmt} → {cmd}")
+    console.print("Visible in GNOME Settings → Keyboard → Custom Shortcuts.")
+
+
+@hotkey_app.command("unset")
+def hotkey_unset() -> None:
+    """Remove the voice-paste GNOME keyboard shortcut."""
+    from voice_paste import hotkey as hk
+
+    hk.unregister()
+    console.print("[green]✅  Hotkey removed.[/green]")
+
+
+@hotkey_app.command("show")
+def hotkey_show() -> None:
+    """Show the currently registered hotkey, if any."""
+    from voice_paste import hotkey as hk
+
+    binding = hk.current_binding()
+    if binding:
+        console.print(f"[green]Hotkey:[/green] {binding}")
+    else:
+        console.print("[yellow]No hotkey registered.[/yellow]")
+        console.print("Run: voice-paste hotkey set ctrl+alt+space")
+
+
 @app.command("_daemon", hidden=True)
 def daemon_cmd(
     language: str = typer.Option("auto", "--language"),
