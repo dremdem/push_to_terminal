@@ -8,32 +8,36 @@ Press a hotkey → dictate → text lands in clipboard → paste manually with `
 
 ## Quick start
 
-### 1. System dependencies
-
 ```bash
-sudo apt update
-sudo apt install wl-clipboard libnotify-bin pipewire-bin
-# X11 fallback (optional):
-sudo apt install xclip xdotool
-```
-
-### 2. Install with uv (handles everything including CUDA torch)
-
-```bash
-# Install uv if not already present:
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# Clone and install:
 git clone https://github.com/dremdem/push_to_terminal
 cd push_to_terminal/voice-paste
-uv sync          # creates .venv, installs whisperx + torch (CUDA) automatically
+./install.sh
 ```
 
-That's it. No `pip install`, no separate torch download step.
-`uv sync` reads `pyproject.toml` and pulls `torch+cu124` from the
-PyTorch CUDA index automatically.
+`install.sh` handles everything: system packages, uv, Python deps, and the GNOME desktop entry. After it finishes:
 
-No API key required. The whisperx model is downloaded on first use (~150 MB for `base`).
+- Search **"Voice Paste"** in GNOME Activities to launch the tray icon
+- The tray starts automatically on next login
+- Register a hotkey: `uv run voice-paste hotkey set ctrl+alt+shift+p`
+
+No `pip install`, no manual PATH changes. The whisperx model downloads on first use (~150 MB for `base`).
+
+### Manual install (step by step)
+
+```bash
+# 1. System deps
+sudo apt install libgirepository-2.0-dev libcairo2-dev gir1.2-appindicator3-0.1 \
+    pipewire-bin wl-clipboard libnotify-bin ffmpeg
+
+# 2. uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 3. Python deps (inside voice-paste/)
+uv sync --extra tray
+
+# 4. Desktop entry
+uv run voice-paste install --autostart
+```
 
 ### 3. Fix ctranslate2 CUDA library issues (Linux kernel 6.6+ / CUDA 12)
 
@@ -291,7 +295,8 @@ Auto-paste (`--auto-paste` via `ydotool`) is planned for v0.3 and requires extra
 | **v0.2** | **Push-to-talk via Unix socket daemon (this release)** ([#2](https://github.com/dremdem/push_to_terminal/issues/2)) |
 | **v0.3** | **Optional auto-paste with `ydotool`/`xdotool` (this release)** ([#3](https://github.com/dremdem/push_to_terminal/issues/3)) |
 | v0.4 | System-tray GUI with language/backend selectors ([#4](https://github.com/dremdem/push_to_terminal/issues/4)) |
-| **v0.5** | **Hotkey binding via GNOME gsettings (this release)** ([#9](https://github.com/dremdem/push_to_terminal/issues/9)) |
+| v0.5 | Hotkey binding via GNOME gsettings ([#9](https://github.com/dremdem/push_to_terminal/issues/9)) |
+| **v0.6** | **Reproducible install — `install.sh` + `voice-paste install` (this release)** ([#11](https://github.com/dremdem/push_to_terminal/issues/11)) |
 
 ---
 
