@@ -21,10 +21,12 @@ class WhisperXTranscriber(BaseTranscriber):
         model: str = "base",
         device: str = "auto",
         compute_type: str = "auto",
+        vad_method: str = "silero",
     ) -> None:
         self._model_name = model
         self._device = self._resolve_device(device)
         self._compute_type = self._resolve_compute_type(compute_type)
+        self._vad_method = vad_method
         self._model = None  # lazy-loaded on first transcription
 
     @staticmethod
@@ -86,6 +88,7 @@ class WhisperXTranscriber(BaseTranscriber):
                 self._model_name,
                 device=self._device,
                 compute_type=self._compute_type,
+                vad_method=self._vad_method,
             )
         audio = whisperx.load_audio(str(audio_path))
         lang = language if language and language != "auto" else None
@@ -125,9 +128,12 @@ def create_transcriber(
     model: str = "base",
     device: str = "auto",
     compute_type: str = "auto",
+    vad_method: str = "silero",
 ) -> BaseTranscriber:
     if backend == "whisperx":
-        return WhisperXTranscriber(model=model, device=device, compute_type=compute_type)
+        return WhisperXTranscriber(
+            model=model, device=device, compute_type=compute_type, vad_method=vad_method
+        )
     if backend == "openai":
         return OpenAITranscriber(model=model)
     raise ValueError(f"Unknown transcription backend: {backend!r}")

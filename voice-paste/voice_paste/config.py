@@ -21,6 +21,9 @@ class TranscriptionConfig(BaseModel):
     model: str = "base"
     device: str = "auto"        # "auto", "cuda", "cpu"
     compute_type: str = "auto"  # "auto", "float16", "int8"
+    vad_method: str = "silero"  # "silero" (default) or "pyannote"
+    # pyannote VAD requires cuDNN 8 which is incompatible with modern cu124/cuDNN-9
+    # environments; silero VAD is a lighter modern alternative that works fine on GPU.
 
 
 class PostprocessConfig(BaseModel):

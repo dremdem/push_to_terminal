@@ -46,6 +46,7 @@ def record(
             cfg.transcription.model,
             cfg.transcription.device,
             cfg.transcription.compute_type,
+            cfg.transcription.vad_method,
         )
         lang = cfg.language if cfg.language != "auto" else None
         text = t.transcribe(wav_path, lang)

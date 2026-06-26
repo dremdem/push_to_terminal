@@ -116,6 +116,8 @@ backend      = "whisperx"  # "whisperx" (default) or "openai"
 model        = "base"      # tiny / base / small / medium / large-v3
 device       = "auto"      # auto / cuda / cpu
 compute_type = "auto"      # auto → float16 on GPU, int8 on CPU
+vad_method   = "silero"    # "silero" (default) or "pyannote"
+# pyannote VAD requires cuDNN 8 and is incompatible with modern CUDA 12 / cuDNN 9 setups.
 
 [postprocess]
 terminal_single_line = true

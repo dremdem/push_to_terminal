@@ -107,7 +107,7 @@ def test_whisperx_transcribe_calls_load_model_and_returns_text(mocker, tmp_path)
     wav.write_bytes(b"data")
     result = t.transcribe(wav, "en")
     assert result == "hello world"
-    mock_wx.load_model.assert_called_once_with("base", device="cpu", compute_type="int8")
+    mock_wx.load_model.assert_called_once_with("base", device="cpu", compute_type="int8", vad_method="silero")
 
 
 def test_whisperx_passes_language_when_not_auto(mocker, tmp_path):
