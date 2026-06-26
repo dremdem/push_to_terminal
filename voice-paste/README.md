@@ -17,36 +17,27 @@ sudo apt install wl-clipboard libnotify-bin pipewire-bin
 sudo apt install xclip xdotool
 ```
 
-### 2. Python install
+### 2. Install with uv (handles everything including CUDA torch)
 
 ```bash
-# Requires Python 3.10+. Uses uv (https://docs.astral.sh/uv/).
-uv tool install git+https://github.com/dremdem/push_to_terminal#subdirectory=voice-paste
+# Install uv if not already present:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Clone and install:
+git clone https://github.com/dremdem/push_to_terminal
+cd push_to_terminal/voice-paste
+uv sync          # creates .venv, installs whisperx + torch (CUDA) automatically
 ```
 
-Or from a local clone:
+That's it. No `pip install`, no separate torch download step.
+`uv sync` reads `pyproject.toml` and pulls `torch==2.6.0+cu124` from the
+PyTorch CUDA index automatically.
 
+No API key required. The whisperx model is downloaded on first use (~150 MB for `base`).
+
+**Optional: OpenAI cloud fallback** (needs key):
 ```bash
-cd voice-paste
-uv sync
-uv run voice-paste --help
-```
-
-### 3. Install whisperx (local transcription, GPU-accelerated)
-
-```bash
-# PyTorch with CUDA (for NVIDIA GPU — replace cu121 with your CUDA version):
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-
-# whisperx:
-pip install whisperx
-```
-
-No API key required. The model is downloaded automatically on first use (~150 MB for `base`).
-
-**Optional: OpenAI fallback** (cloud, requires key):
-```bash
-pip install openai
+uv sync --extra openai
 export OPENAI_API_KEY=sk-...
 ```
 
