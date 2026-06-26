@@ -95,6 +95,8 @@ def _handle(conn: socket.socket, model) -> None:
         text = _transcribe(model, wav_bytes, language)
         log.info("Result: %r", text)
         _send_response(conn, {"text": text})
+    except EOFError:
+        pass  # healthcheck probe: connect + close with no data
     except Exception as exc:
         log.exception("Transcription error")
         try:
