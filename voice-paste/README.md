@@ -30,10 +30,28 @@ uv sync          # creates .venv, installs whisperx + torch (CUDA) automatically
 ```
 
 That's it. No `pip install`, no separate torch download step.
-`uv sync` reads `pyproject.toml` and pulls `torch==2.6.0+cu124` from the
+`uv sync` reads `pyproject.toml` and pulls `torch+cu124` from the
 PyTorch CUDA index automatically.
 
 No API key required. The whisperx model is downloaded on first use (~150 MB for `base`).
+
+### 3. Fix ctranslate2 execstack (Linux kernel 6.6+)
+
+On modern Ubuntu kernels (6.6+, including 7.x), ctranslate2 4.x ships a
+shared library with an executable-stack flag that the kernel now refuses.
+Run this **once after every `uv sync`**:
+
+```bash
+uv run python scripts/fix_execstack.py
+```
+
+Expected output:
+```
+✅  patched  libctranslate2-d3638643.so.4.4.0
+1 file(s) patched. ctranslate2 should now load correctly.
+```
+
+This patches the ELF binary in-place using only Python — no system tools needed.
 
 **Optional: OpenAI cloud fallback** (needs key):
 ```bash
