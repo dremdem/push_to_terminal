@@ -106,23 +106,56 @@ def fix_execstack(libs_dir: Path) -> None:
         print("  execstack: all files already clean.")
 
 
-def fix_cudnn8_symlinks(libs_dir: Path) -> None:
+def fix_cudnn8_stubs(libs_dir: Path) -> None:
+    # ctranslate2 4.4.x bundles a *consolidated* cuDNN 8 (all ops in one .so)
+    # but its runtime still dlopen's the historical split-library names.
+    # Symlinks back to the same file deadlock (glibc re-enters its own init mutex).
+    # The fix: compile proper stub .so files that list the consolidated lib as a
+    # NEEDED dep.  dlsym then finds all cuDNN symbols via the dep chain without
+    # re-running any initialization.  Requires gcc (apt install build-essential).
     bundled = _find_bundled_cudnn8(libs_dir)
     if bundled is None:
-        print("  cuDNN 8: no bundled cuDNN found — skipping symlinks.")
+        print("  cuDNN 8: no bundled cuDNN found — skipping stubs.")
+        return
+    import shutil, subprocess, tempfile
+    if not shutil.which("gcc"):
+        print("  cuDNN 8: gcc not found — install build-essential and re-run.")
         return
     created = 0
-    for name in _CUDNN8_SUB_LIBS:
-        link = libs_dir / name
-        if link.exists() or link.is_symlink():
-            continue
-        link.symlink_to(bundled.name)
-        print(f"  cuDNN symlink: {name} -> {bundled.name}")
-        created += 1
+    with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as f:
+        f.write("/* empty stub — all symbols come from NEEDED dep below */\n")
+        stub_src = f.name
+    try:
+        for name in _CUDNN8_SUB_LIBS:
+            stub = libs_dir / name
+            if stub.exists() and not stub.is_symlink():
+                continue  # already a proper file (not symlink), skip
+            if stub.is_symlink():
+                stub.unlink()
+            result = subprocess.run(
+                [
+                    "gcc", "-shared", "-fPIC", stub_src,
+                    "-o", str(stub),
+                    f"-Wl,-soname,{name}",
+                    f"-Wl,-rpath,$ORIGIN",
+                    f"-L{libs_dir}",
+                    "-Wl,--no-as-needed",
+                    f"-l:{bundled.name}",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode != 0:
+                print(f"  gcc error for {name}: {result.stderr.strip()}")
+                sys.exit(1)
+            print(f"  cuDNN stub: {name} -> (links) {bundled.name}")
+            created += 1
+    finally:
+        Path(stub_src).unlink(missing_ok=True)
     if created:
-        print(f"  {created} symlink(s) created.")
+        print(f"  {created} stub(s) compiled.")
     else:
-        print("  cuDNN 8 symlinks: all already present.")
+        print("  cuDNN 8 stubs: all already present.")
 
 
 def main() -> None:
@@ -133,7 +166,7 @@ def main() -> None:
 
     print(f"ctranslate2.libs: {libs_dir}")
     fix_execstack(libs_dir)
-    fix_cudnn8_symlinks(libs_dir)
+    fix_cudnn8_stubs(libs_dir)
     print("\nDone. ctranslate2 should now load correctly on CUDA 12 / kernel 6.6+.")
 
 

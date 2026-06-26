@@ -20,7 +20,7 @@ class TranscriptionConfig(BaseModel):
     backend: str = "whisperx"
     model: str = "base"
     device: str = "auto"        # "auto", "cuda", "cpu"
-    compute_type: str = "auto"  # "auto", "float16", "int8"
+    compute_type: str = "auto"  # "auto" → float16 on GPU, int8 on CPU
     vad_method: str = "silero"  # "silero" (default) or "pyannote"
     # pyannote VAD requires cuDNN 8 which is incompatible with modern cu124/cuDNN-9
     # environments; silero VAD is a lighter modern alternative that works fine on GPU.

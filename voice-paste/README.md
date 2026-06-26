@@ -59,8 +59,11 @@ What it fixes (no system tools required, Python-only):
   Fixed by clearing the execute bit in the ELF header in-place.
 - **cuDNN 8 sub-libraries** — ctranslate2 bundles a consolidated cuDNN 8.9.7 (all ops
   in one `.so`) but cuDNN 8's runtime loader still tries to `dlopen` the historical
-  split names (`libcudnn_ops_infer.so.8`, etc.).  Fixed by creating symlinks for each
-  expected name pointing at the bundled file.
+  split names (`libcudnn_ops_infer.so.8`, etc.).  Simple symlinks deadlock (the library
+  re-enters its own glibc init mutex); the fix compiles minimal stub `.so` files via
+  `gcc` that list the consolidated lib as a `NEEDED` dep, so `dlsym` resolves all
+  cuDNN symbols through the dep chain without re-running any initialization.
+  Requires `gcc` (`sudo apt install build-essential`).
 
 **Optional: OpenAI cloud fallback** (needs key):
 ```bash

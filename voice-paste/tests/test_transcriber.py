@@ -120,27 +120,18 @@ def test_whisperx_raises_if_not_installed(mocker, tmp_path):
         t.transcribe(wav, "auto")
 
 
-def test_whisperx_resolves_cuda_when_torch_available(mocker):
+def test_whisperx_resolves_cpu_for_auto(mocker):
+    # auto always resolves to cpu — ctranslate2 4.4.0 is broken on CUDA 12.4.
+    # Users who want GPU set device="cuda" explicitly in config.
     mock_torch = mocker.MagicMock()
     mock_torch.cuda.is_available.return_value = True
-    mocker.patch.dict("sys.modules", {"torch": mock_torch})
-    t = WhisperXTranscriber(device="auto")
-    assert t._device == "cuda"
-
-
-def test_whisperx_resolves_cpu_when_cuda_unavailable(mocker):
-    mock_torch = mocker.MagicMock()
-    mock_torch.cuda.is_available.return_value = False
     mocker.patch.dict("sys.modules", {"torch": mock_torch})
     t = WhisperXTranscriber(device="auto")
     assert t._device == "cpu"
 
 
 def test_whisperx_float16_on_cuda(mocker):
-    mock_torch = mocker.MagicMock()
-    mock_torch.cuda.is_available.return_value = True
-    mocker.patch.dict("sys.modules", {"torch": mock_torch})
-    t = WhisperXTranscriber(device="auto", compute_type="auto")
+    t = WhisperXTranscriber(device="cuda", compute_type="auto")
     assert t._compute_type == "float16"
 
 

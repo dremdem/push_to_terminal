@@ -33,11 +33,11 @@ class WhisperXTranscriber(BaseTranscriber):
     def _resolve_device(device: str) -> str:
         if device != "auto":
             return device
-        try:
-            import torch
-            return "cuda" if torch.cuda.is_available() else "cpu"
-        except ImportError:
-            return "cpu"
+        # ctranslate2 4.4.0 (the only version whisperx 3.4.5 allows on Linux)
+        # is broken on CUDA 12.4 — all compute types hang at first inference.
+        # CPU int8 with AVX2+MKL is fast enough: ~100x real-time for whisper-base.
+        # Users who need GPU can set device="cuda" explicitly in config.toml.
+        return "cpu"
 
     def _resolve_compute_type(self, compute_type: str) -> str:
         if compute_type != "auto":
