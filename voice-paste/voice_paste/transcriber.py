@@ -60,7 +60,11 @@ class WhisperXTranscriber(BaseTranscriber):
             _orig = torch.load
 
             def _load(*args, **kwargs):
-                kwargs.setdefault("weights_only", False)
+                # lightning_fabric passes weights_only=None (not absent),
+                # so setdefault would not fire.  We want False for None/absent;
+                # only an explicit True should be preserved.
+                if kwargs.get("weights_only") is not True:
+                    kwargs["weights_only"] = False
                 return _orig(*args, **kwargs)
 
             _load._whisperx_patched = True  # type: ignore[attr-defined]

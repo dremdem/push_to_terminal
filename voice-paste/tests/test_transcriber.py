@@ -40,13 +40,17 @@ def test_patch_torch_load_defaults_weights_only_to_false():
         WhisperXTranscriber._patch_torch_load()
         assert getattr(torch.load, "_whisperx_patched", False)
 
+        # No weights_only kwarg → must inject False.
         torch.load("some_path")
-        assert captured_kwargs[-1].get("weights_only") is False, \
-            "no explicit weights_only should default to False"
+        assert captured_kwargs[-1].get("weights_only") is False
 
+        # weights_only=None (lightning_fabric passes this) → must become False.
+        torch.load("some_path", weights_only=None)
+        assert captured_kwargs[-1].get("weights_only") is False
+
+        # Explicit True → must be preserved.
         torch.load("some_path", weights_only=True)
-        assert captured_kwargs[-1].get("weights_only") is True, \
-            "explicit weights_only=True must be preserved"
+        assert captured_kwargs[-1].get("weights_only") is True
     finally:
         torch.load = original_load
 
