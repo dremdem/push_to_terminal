@@ -39,7 +39,7 @@ def test_start_passes_language_and_target_to_spawn(mocker):
     mock_spawn = mocker.patch("voice_paste.daemon.spawn")
     mocker.patch("time.sleep")
     runner.invoke(app, ["start", "--language", "ru", "--target", "clipboard"])
-    mock_spawn.assert_called_once_with(language="ru", target="clipboard")
+    mock_spawn.assert_called_once_with(language="ru", target="clipboard", auto_paste=False)
 
 
 def test_start_errors_if_daemon_never_starts(mocker):
@@ -72,21 +72,26 @@ def test_stop_calls_send_stop(mocker):
 def test_record_runs_full_pipeline(mocker, tmp_path):
     mocker.patch("voice_paste.recorder.find_recorder", return_value="pw-record")
     mocker.patch("voice_paste.recorder.record_fixed")
-    mock_transcribe = mocker.patch("voice_paste.transcriber.WhisperXTranscriber.transcribe", return_value="hello")
+    mock_t = mocker.MagicMock()
+    mock_t.transcribe.return_value = "hello"
+    mocker.patch("voice_paste.transcriber.create_transcriber", return_value=mock_t)
     mocker.patch("voice_paste.clipboard.copy")
     mocker.patch("voice_paste.notify.notify")
     result = runner.invoke(app, ["record", "--duration", "5"])
     assert result.exit_code == 0
-    mock_transcribe.assert_called_once()
+    mock_t.transcribe.assert_called_once()
 
 
 def test_record_never_executes_commands(mocker):
     """Safety: record must not press Enter or run shell commands."""
     mocker.patch("voice_paste.recorder.find_recorder", return_value="pw-record")
     mocker.patch("voice_paste.recorder.record_fixed")
-    mocker.patch("voice_paste.transcriber.WhisperXTranscriber.transcribe", return_value="rm -rf /tmp")
+    mock_t = mocker.MagicMock()
+    mock_t.transcribe.return_value = "rm -rf /tmp"
+    mocker.patch("voice_paste.transcriber.create_transcriber", return_value=mock_t)
     mock_copy = mocker.patch("voice_paste.clipboard.copy")
     mocker.patch("voice_paste.notify.notify")
-    runner.invoke(app, ["record", "--duration", "5"])
+    result = runner.invoke(app, ["record", "--duration", "5"])
+    assert result.exit_code == 0
     text = mock_copy.call_args[0][0]
     assert not text.endswith("\n")

@@ -43,10 +43,13 @@ def send_stop() -> None:
         s.recv(1024)
 
 
-def spawn(language: str = "auto", target: str = "clipboard") -> None:
+def spawn(language: str = "auto", target: str = "clipboard", auto_paste: bool = False) -> None:
     SOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.argv[0], "_daemon", "--language", language, "--target", target]
+    if auto_paste:
+        cmd.append("--auto-paste")
     subprocess.Popen(
-        [sys.argv[0], "_daemon", "--language", language, "--target", target],
+        cmd,
         start_new_session=True,
         close_fds=True,
         stdout=subprocess.DEVNULL,
@@ -95,6 +98,13 @@ def run(config) -> None:
     clipboard.copy(text)
     preview = text[:60] + ("…" if len(text) > 60 else "")
     notify.notify(f'Copied: "{preview}"', "voice-paste")
+
+    if config.auto_paste:
+        from voice_paste.paste import paste, PasteError
+        try:
+            paste(config.target)
+        except PasteError as exc:
+            notify.notify(f"Auto-paste unavailable: {exc}", "voice-paste")
 
     wav_path.unlink(missing_ok=True)
     SOCK_PATH.unlink(missing_ok=True)
