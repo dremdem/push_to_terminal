@@ -159,9 +159,12 @@ def hotkey_set(
     command: str = typer.Option("start", "--command", "-c", help="'start' (push-to-talk) or 'record' (fixed)"),
 ) -> None:
     """Register a global GNOME keyboard shortcut for voice-paste."""
+    import sys
     from voice_paste import hotkey as hk
 
-    cmd = f"voice-paste {command}"
+    # Use the absolute path to this binary so GNOME can find it outside the venv.
+    exe = Path(sys.argv[0]).resolve()
+    cmd = f"{exe} {command}"
     hk.register(binding, cmd)
     gnome_fmt = hk.binding_to_gnome(binding)
     console.print(f"[green]✅  Hotkey registered:[/green] {gnome_fmt} → {cmd}")
