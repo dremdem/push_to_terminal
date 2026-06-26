@@ -167,6 +167,31 @@ def config_path() -> None:
     console.print(str(default_config_path()))
 
 
+@app.command()
+def install(
+    autostart: bool = typer.Option(False, "--autostart/--no-autostart", help="Launch tray on login"),
+) -> None:
+    """Install the voice-paste-tray desktop entry (GNOME app launcher)."""
+    import sys
+    from voice_paste import desktop as desk
+
+    exe = str(Path(sys.argv[0]).resolve().parent / "voice-paste-tray")
+    desk.install(exe, autostart=autostart)
+    console.print(f"[green]✅  Installed:[/green] {desk.DESKTOP_FILE}")
+    if autostart:
+        console.print(f"[green]✅  Autostart:[/green] {desk.AUTOSTART_FILE}")
+    console.print("Search 'Voice Paste' in GNOME Activities to launch the tray.")
+
+
+@app.command()
+def uninstall() -> None:
+    """Remove the voice-paste-tray desktop entry and autostart file."""
+    from voice_paste import desktop as desk
+
+    desk.uninstall()
+    console.print("[green]✅  Uninstalled voice-paste desktop entries.[/green]")
+
+
 hotkey_app = typer.Typer(help="Manage the global GNOME keyboard shortcut.")
 app.add_typer(hotkey_app, name="hotkey")
 
