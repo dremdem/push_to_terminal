@@ -123,16 +123,14 @@ Then paste with `Ctrl+V` (browser/chat) or `Ctrl+Shift+V` (terminal).
 ### System tray (v0.4)
 
 ```bash
-# Install tray extra first:
+# System build deps (one-time):
+sudo apt install libgirepository-2.0-dev libcairo2-dev gir1.2-appindicator3-0.1
+
+# Install tray extra:
 uv sync --extra tray
 
 # Launch:
 voice-paste-tray
-```
-
-The tray icon appears in the GNOME top bar (requires XWayland or AppIndicator3):
-```bash
-sudo apt install gir1.2-appindicator3-0.1   # pure Wayland, optional
 ```
 
 **Icon colours:**
