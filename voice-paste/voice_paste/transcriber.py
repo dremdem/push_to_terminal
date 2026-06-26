@@ -45,6 +45,40 @@ class WhisperXTranscriber(BaseTranscriber):
         return "float16" if self._device == "cuda" else "int8"
 
     @staticmethod
+    def _patch_torch_hub() -> None:
+        # torch.hub._parse_repo_info fetches github.com to detect the default
+        # branch (main vs master) when no ':ref' is given in the repo string.
+        # This network call blocks even when the repo is already cached locally,
+        # hanging indefinitely on slow or unavailable connections.
+        # Fix: wrap hub.load to inject the cached branch ref, skipping GitHub.
+        try:
+            import os
+            import torch.hub as _hub
+            if getattr(_hub.load, "_whisperx_patched", False):
+                return
+            _orig_hub_load = _hub.load
+
+            def _hub_load(repo_or_dir, model, *args, source="github", **kwargs):
+                if (
+                    source == "github"
+                    and isinstance(repo_or_dir, str)
+                    and "/" in repo_or_dir
+                    and ":" not in repo_or_dir
+                ):
+                    hub_dir = _hub.get_dir()
+                    owner, repo = repo_or_dir.split("/", 1)
+                    for ref in ("master", "main"):
+                        if os.path.exists(os.path.join(hub_dir, f"{owner}_{repo}_{ref}")):
+                            repo_or_dir = f"{repo_or_dir}:{ref}"
+                            break
+                return _orig_hub_load(repo_or_dir, model, *args, source=source, **kwargs)
+
+            _hub_load._whisperx_patched = True  # type: ignore[attr-defined]
+            _hub.load = _hub_load
+        except (ImportError, AttributeError):
+            pass
+
+    @staticmethod
     def _patch_torch_load() -> None:
         # PyTorch 2.6 changed the weights_only default from False → True.
         # The pyannote VAD checkpoint (used by whisperx) was pickled before
@@ -83,6 +117,7 @@ class WhisperXTranscriber(BaseTranscriber):
                 "Run:  uv sync  (torch + whisperx are declared in pyproject.toml)"
             )
         self._patch_torch_load()
+        self._patch_torch_hub()
         if self._model is None:
             self._model = whisperx.load_model(
                 self._model_name,
