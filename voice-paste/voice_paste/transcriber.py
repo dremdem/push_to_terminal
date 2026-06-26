@@ -45,20 +45,37 @@ class WhisperXTranscriber(BaseTranscriber):
     @staticmethod
     def _allow_omegaconf_globals() -> None:
         # PyTorch 2.6 changed weights_only default to True in torch.load.
-        # pyannote VAD checkpoints embed omegaconf types; allowlist them so
-        # the model loads without reverting to the insecure weights_only=False.
+        # pyannote VAD checkpoints pickle many omegaconf types (ListConfig,
+        # DictConfig, ContainerMetadata, value nodes, …).  Register the whole
+        # omegaconf package so we never hit this one-at-a-time.
         # Use sys.modules.get instead of `import torch` — whisperx always
-        # imports torch before this runs, so it's already cached; using
-        # `import torch` here would let mock.patch remove torch from sys.modules
-        # during test teardown and corrupt torch's C extension state.
+        # imports torch before this runs, so it is already cached; using
+        # `import torch` here would let mock.patch teardown remove torch from
+        # sys.modules and corrupt the C extension state in later tests.
         import sys
         torch = sys.modules.get("torch")
         if torch is None:
             return
         try:
-            from omegaconf.dictconfig import DictConfig
-            from omegaconf.listconfig import ListConfig
-            torch.serialization.add_safe_globals([ListConfig, DictConfig])
+            import importlib
+            import inspect
+            import pkgutil
+            import omegaconf
+
+            classes: set = set()
+            for _, modname, _ in pkgutil.walk_packages(
+                path=omegaconf.__path__,
+                prefix=omegaconf.__name__ + ".",
+                onerror=lambda _: None,
+            ):
+                try:
+                    mod = importlib.import_module(modname)
+                except Exception:
+                    continue
+                for _, obj in inspect.getmembers(mod, inspect.isclass):
+                    if getattr(obj, "__module__", "").startswith("omegaconf"):
+                        classes.add(obj)
+            torch.serialization.add_safe_globals(list(classes))
         except (ImportError, AttributeError):
             pass  # omegaconf missing or PyTorch < 2.6 — nothing to do
 
