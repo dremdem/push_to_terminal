@@ -42,6 +42,7 @@ class TrayApp:
         self.last_wav: Path | None = None
         self._on_state_change: Callable[[str], None] | None = None
         self._icon = None
+        self._stop_event = threading.Event()
 
     # ── icon ------------------------------------------------------------------
 
@@ -144,19 +145,30 @@ class TrayApp:
                 wav_path = Path(f.name)
             owned_tmp = True
 
+        self._stop_event.clear()
         self._set_state("recording")
+        stream = recorder.RecordingStream(wav_path)
         try:
-            recorder.record_fixed(wav_path, duration, self._cfg.audio.device)
+            stream.start()
+            self._stop_event.wait(timeout=duration)
         except Exception as exc:
             notify.notify(f"Recording failed: {exc}", "voice-paste")
             self._set_state("idle")
             return
+        finally:
+            stream.stop()
 
         self.last_wav = wav_path
         self._transcribe_wav(wav_path)
 
         if owned_tmp:
             wav_path.unlink(missing_ok=True)
+
+    def toggle_record(self) -> None:
+        if self.state == "idle":
+            threading.Thread(target=self._do_record, daemon=True).start()
+        elif self.state == "recording":
+            self._stop_event.set()
 
     def _record_in_thread(self) -> None:
         if self.state != "idle":
@@ -196,8 +208,11 @@ class TrayApp:
                 return f'Last: "{preview}"'
             return "Last: —"
 
+        def record_label(item: object) -> str:
+            return "Stop" if self.state == "recording" else "Record"
+
         return _pystray.Menu(
-            _pystray.MenuItem("Record", lambda icon, item: self._record_in_thread()),
+            _pystray.MenuItem(record_label, lambda icon, item: self.toggle_record()),
             _pystray.Menu.SEPARATOR,
             _pystray.MenuItem(
                 "Language",

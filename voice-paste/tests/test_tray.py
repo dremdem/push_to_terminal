@@ -156,7 +156,8 @@ def test_state_transitions_during_record(mocker, tmp_path):
     def capture_state(s):
         states.append(s)
 
-    mocker.patch("voice_paste.tray.recorder.record_fixed")
+    mock_stream = mocker.MagicMock()
+    mocker.patch("voice_paste.tray.recorder.RecordingStream", return_value=mock_stream)
     mock_t = mocker.MagicMock()
     mock_t.transcribe.return_value = "done"
     mocker.patch("voice_paste.tray.create_transcriber", return_value=mock_t)
@@ -167,9 +168,26 @@ def test_state_transitions_during_record(mocker, tmp_path):
         app = TrayApp()
     app._on_state_change = capture_state
 
-    app._do_record(duration=3, language="en", wav_path=wav)
+    app._do_record(duration=0, language="en", wav_path=wav)
 
     assert "recording" in states
     assert "transcribing" in states
     assert app.state == "idle"
     assert app.last_text == "done"
+
+
+def test_toggle_record_starts_when_idle(mocker):
+    mock_thread = mocker.patch("voice_paste.tray.threading.Thread")
+    with patch("voice_paste.tray.load_config"):
+        app = TrayApp()
+    assert app.state == "idle"
+    app.toggle_record()
+    mock_thread.assert_called()
+
+
+def test_toggle_record_stops_when_recording(mocker):
+    with patch("voice_paste.tray.load_config"):
+        app = TrayApp()
+    app.state = "recording"
+    app.toggle_record()
+    assert app._stop_event.is_set()
