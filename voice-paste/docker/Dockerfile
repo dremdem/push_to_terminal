@@ -1,4 +1,4 @@
-FROM nvidia/cuda:12.1.0-cudnn8-runtime-ubuntu22.04
+FROM ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -6,13 +6,14 @@ RUN apt-get update && apt-get install -y \
     python3 python3-pip ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# PyTorch cu121 — compatible with cuDNN 8 runtime in this base image
-RUN pip3 install --no-cache-dir \
-    torch==2.3.0 torchaudio==2.3.0 \
-    --index-url https://download.pytorch.org/whl/cu121
-
-# whisperx 3.8.x requires ctranslate2>=4.5.0 which supports cuDNN 9/8 correctly
+# Install whisperx (brings ctranslate2 4.5+, which bundles its own cuDNN 9)
 RUN pip3 install --no-cache-dir "whisperx==3.8.5"
+
+# whisperx pulls torch~=2.8.0 from PyPI (CUDA 12.8 wheels) which requires driver ≥570.
+# Force-reinstall with cu124 wheels so it works on CUDA 12.4 driver (~550.x).
+RUN pip3 install --no-cache-dir --force-reinstall \
+    torch torchaudio \
+    --index-url https://download.pytorch.org/whl/cu124
 
 WORKDIR /app
 COPY server.py .
