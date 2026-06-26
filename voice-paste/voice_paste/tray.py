@@ -169,18 +169,24 @@ class TrayApp:
         import pystray as _pystray
 
         def lang_item(lang: str) -> "_pystray.MenuItem":
+            def on_click(icon, item):
+                self.set_language(lang)
+
             return _pystray.MenuItem(
                 lang,
-                lambda icon, item, _l=lang: self.set_language(_l),
-                checked=lambda item, _l=lang: self._cfg.language == _l,
+                on_click,
+                checked=lambda item: self._cfg.language == lang,
                 radio=True,
             )
 
         def backend_item(b: str) -> "_pystray.MenuItem":
+            def on_click(icon, item):
+                self.set_backend(b)
+
             return _pystray.MenuItem(
                 b,
-                lambda icon, item, _b=b: self.set_backend(_b),
-                checked=lambda item, _b=b: self._cfg.transcription.backend == _b,
+                on_click,
+                checked=lambda item: self._cfg.transcription.backend == b,
                 radio=True,
             )
 
