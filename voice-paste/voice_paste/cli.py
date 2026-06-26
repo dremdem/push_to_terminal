@@ -10,7 +10,7 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from voice_paste import clipboard, daemon, notify, postprocess, recorder
+from voice_paste import clipboard, daemon, notify, paste as paste_mod, postprocess, recorder
 from voice_paste import transcriber as trans_mod
 from voice_paste.config import load_config
 
@@ -23,11 +23,13 @@ def record(
     duration: int = typer.Option(15, "--duration", "-d", help="Recording duration in seconds"),
     language: str = typer.Option("auto", "--language", "-l", help="Language: auto, ru, en"),
     target: str = typer.Option("clipboard", "--target", "-t", help="Target: clipboard, terminal, active"),
+    auto_paste: Optional[bool] = typer.Option(None, "--auto-paste/--no-auto-paste", help="Inject paste keystroke after copy"),
 ) -> None:
     """Record for a fixed duration, transcribe, and copy to clipboard."""
     cfg = load_config()
     cfg.language = language  # type: ignore[assignment]
     cfg.target = target  # type: ignore[assignment]
+    do_paste = cfg.auto_paste if auto_paste is None else auto_paste
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         wav_path = Path(f.name)
@@ -55,6 +57,13 @@ def record(
         clipboard.copy(text)
         console.print(f'[green]✅  Copied to clipboard:[/green]\n"{text}"')
         notify.notify(f'Copied: "{text[:60]}"', "voice-paste")
+
+        if do_paste:
+            try:
+                paste_mod.paste(target)
+            except paste_mod.PasteError as exc:
+                console.print(f"[yellow]⚠   Auto-paste unavailable (clipboard fallback):[/yellow] {exc}")
+                notify.notify("Auto-paste unavailable — text copied to clipboard.", "voice-paste")
     except Exception as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
@@ -66,13 +75,16 @@ def record(
 def start(
     language: str = typer.Option("auto", "--language", "-l", help="Language: auto, ru, en"),
     target: str = typer.Option("clipboard", "--target", "-t", help="Target: clipboard, terminal, active"),
+    auto_paste: Optional[bool] = typer.Option(None, "--auto-paste/--no-auto-paste", help="Inject paste keystroke after copy"),
 ) -> None:
     """Start push-to-talk recording. Run 'voice-paste stop' to finish."""
     if daemon.is_running():
         console.print("[red]Already recording. Run 'voice-paste stop' to finish.[/red]")
         raise typer.Exit(1)
 
-    daemon.spawn(language=language, target=target)
+    cfg = load_config()
+    do_paste = cfg.auto_paste if auto_paste is None else auto_paste
+    daemon.spawn(language=language, target=target, auto_paste=do_paste)
 
     for _ in range(20):
         time.sleep(0.1)
@@ -141,9 +153,11 @@ def config_path() -> None:
 def daemon_cmd(
     language: str = typer.Option("auto", "--language"),
     target: str = typer.Option("clipboard", "--target"),
+    auto_paste: bool = typer.Option(False, "--auto-paste/--no-auto-paste"),
 ) -> None:
     """Internal: run the push-to-talk daemon process."""
     cfg = load_config()
     cfg.language = language  # type: ignore[assignment]
     cfg.target = target  # type: ignore[assignment]
+    cfg.auto_paste = auto_paste
     daemon.run(cfg)

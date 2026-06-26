@@ -115,9 +115,36 @@ voice-paste record --duration 10            # 10s
 voice-paste record --language ru            # Russian
 voice-paste record --language en            # English
 voice-paste record --target terminal        # single-line output for terminal paste
+voice-paste record --auto-paste             # copy + auto-inject Ctrl+V (opt-in)
 ```
 
 Then paste with `Ctrl+V` (browser/chat) or `Ctrl+Shift+V` (terminal).
+
+### Auto-paste (v0.3, opt-in)
+
+By default voice-paste only copies to clipboard — you paste manually.  
+Enable auto-paste to have the keystroke injected automatically:
+
+```bash
+# One-off:
+voice-paste record --auto-paste --target active    # Ctrl+V into focused window
+voice-paste record --auto-paste --target terminal  # Ctrl+Shift+V into terminal
+
+# Always-on (config):
+# ~/.config/voice-paste/config.toml
+auto_paste = true
+```
+
+**Requirements:**
+- Wayland: install `ydotool` and add yourself to the `ydotool` group:
+  ```bash
+  sudo apt install ydotool
+  sudo usermod -aG ydotool $USER   # re-login required
+  sudo systemctl enable --now ydotool
+  ```
+- X11: install `xdotool` (`sudo apt install xdotool`)
+
+If the tool is missing, voice-paste falls back to clipboard-only and shows a notification. **Enter is never injected.**
 
 ### Push-to-talk (v0.2)
 
@@ -149,7 +176,7 @@ The app works without it (sensible defaults apply).
 language = "auto"      # "auto", "ru", or "en"
 target   = "clipboard" # "clipboard", "terminal", or "active"
 duration = 15
-auto_paste = false     # never auto-paste in v0.2 (see v0.3 roadmap)
+auto_paste = false     # true → inject Ctrl+V / Ctrl+Shift+V after copy (opt-in)
 
 [audio]
 device      = "default"
@@ -214,7 +241,7 @@ Auto-paste (`--auto-paste` via `ydotool`) is planned for v0.3 and requires extra
 |---------|---------|
 | v0.1 | Fixed-duration recording, OpenAI transcription, clipboard copy ([#1](https://github.com/dremdem/push_to_terminal/issues/1)) |
 | **v0.2** | **Push-to-talk via Unix socket daemon (this release)** ([#2](https://github.com/dremdem/push_to_terminal/issues/2)) |
-| v0.3 | Optional auto-paste with `ydotool` ([#3](https://github.com/dremdem/push_to_terminal/issues/3)) |
+| **v0.3** | **Optional auto-paste with `ydotool`/`xdotool` (this release)** ([#3](https://github.com/dremdem/push_to_terminal/issues/3)) |
 | v0.4 | System-tray GUI ([#4](https://github.com/dremdem/push_to_terminal/issues/4)) |
 
 ---
