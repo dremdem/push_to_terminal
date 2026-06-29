@@ -61,9 +61,8 @@ def record(
         if do_paste:
             try:
                 paste_mod.paste(target)
-            except paste_mod.PasteError as exc:
-                console.print(f"[yellow]⚠   Auto-paste unavailable (clipboard fallback):[/yellow] {exc}")
-                notify.notify("Auto-paste unavailable — text copied to clipboard.", "voice-paste")
+            except paste_mod.PasteError:
+                pass  # text already in clipboard; silently skip keystroke injection
     except Exception as exc:
         console.print(f"[red]Error:[/red] {exc}")
         raise typer.Exit(1)
