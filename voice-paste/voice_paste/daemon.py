@@ -103,8 +103,8 @@ def run(config) -> None:
         from voice_paste.paste import paste, PasteError
         try:
             paste(config.target)
-        except PasteError as exc:
-            notify.notify(f"Auto-paste unavailable: {exc}", "voice-paste")
+        except PasteError:
+            pass  # text already in clipboard; silently skip keystroke injection
 
     wav_path.unlink(missing_ok=True)
     SOCK_PATH.unlink(missing_ok=True)
