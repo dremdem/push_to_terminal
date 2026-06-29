@@ -5,9 +5,9 @@ from voice_paste.config import Config, load_config, default_config_path
 def test_defaults():
     c = Config()
     assert c.language == "auto"
-    assert c.target == "clipboard"
+    assert c.target == "active"
     assert c.duration == 15
-    assert c.auto_paste is False
+    assert c.auto_paste is True
     assert c.transcription.backend == "whisperx"
     assert c.transcription.model == "base"
     assert c.transcription.device == "auto"

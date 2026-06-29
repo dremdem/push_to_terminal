@@ -219,5 +219,5 @@ def test_daemon_never_sends_enter(mocker, tmp_path):
     # Text must reach clipboard exactly as-is, no appended newline
     text_copied = mock_copy.call_args[0][0]
     assert not text_copied.endswith("\n")
-    # paste() must NOT be called with auto-paste disabled (default)
-    mock_paste.assert_not_called()
+    # auto_paste=True by default — paste() is called with the configured target
+    mock_paste.assert_called_once_with("active")
