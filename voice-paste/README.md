@@ -213,9 +213,9 @@ The app works without it (sensible defaults apply).
 ```toml
 [general]
 language = "auto"      # "auto", "ru", or "en"
-target   = "clipboard" # "clipboard", "terminal", or "active"
+target   = "active"    # "active" (Ctrl+V), "terminal" (Ctrl+Shift+V), "clipboard" (manual paste)
 duration = 15
-auto_paste = false     # true → inject Ctrl+V / Ctrl+Shift+V after copy (opt-in)
+auto_paste = true      # false → copy to clipboard only, paste manually with Ctrl+V
 
 [audio]
 device      = "default"

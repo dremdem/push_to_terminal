@@ -35,11 +35,13 @@ def test_start_spawns_daemon_and_confirms(mocker):
 
 
 def test_start_passes_language_and_target_to_spawn(mocker):
+    from voice_paste.config import Config
     mocker.patch("voice_paste.daemon.is_running", side_effect=[False, True])
     mock_spawn = mocker.patch("voice_paste.daemon.spawn")
+    mocker.patch("voice_paste.cli.load_config", return_value=Config())
     mocker.patch("time.sleep")
     runner.invoke(app, ["start", "--language", "ru", "--target", "clipboard"])
-    mock_spawn.assert_called_once_with(language="ru", target="clipboard", auto_paste=False)
+    mock_spawn.assert_called_once_with(language="ru", target="clipboard", auto_paste=True)
 
 
 def test_start_errors_if_daemon_never_starts(mocker):

@@ -32,9 +32,9 @@ class PostprocessConfig(BaseModel):
 
 class Config(BaseModel):
     language: Literal["auto", "ru", "en"] = "auto"
-    target: Literal["clipboard", "terminal", "active"] = "clipboard"
+    target: Literal["clipboard", "terminal", "active"] = "active"
     duration: int = 15
-    auto_paste: bool = False
+    auto_paste: bool = True
     audio: AudioConfig = AudioConfig()
     transcription: TranscriptionConfig = TranscriptionConfig()
     postprocess: PostprocessConfig = PostprocessConfig()
