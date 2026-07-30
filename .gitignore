@@ -1,0 +1,33 @@
+# Secrets — never commit credentials
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+
+# Local user config — may contain machine-specific settings or keys
+config.toml
+
+# Captured audio — the daemon writes temp recordings during transcription
+*.wav
+*.mp3
+*.ogg
+*.flac
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
