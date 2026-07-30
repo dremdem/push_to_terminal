@@ -1,3 +1,16 @@
+# Secrets — OPENAI_API_KEY belongs in the environment, never in the repo
+.env
+.env.*
+!.env.example
+
+# Local user config — the real one lives in ~/.config/voice-paste/config.toml,
+# but a stray copy here must never be committed
+config.toml
+
+# Captured audio — daemon.run() writes temp .wav files while transcribing
+*.wav
+
+# Python
 __pycache__/
 *.pyc
 *.pyo
