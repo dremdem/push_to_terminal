@@ -287,6 +287,45 @@ Auto-paste (`--auto-paste` via `ydotool`) is planned for v0.3 and requires extra
 
 ---
 
+## Troubleshooting
+
+### Nothing happens after pressing the hotkey
+
+Since v0.8 every failure raises a desktop notification starting with `Error:`, carrying the
+underlying cause. Read that message first — it usually names the fix.
+
+The most common cause when `backend = "docker"` is a stopped container:
+
+```
+Error: Docker transcription service socket not found at
+/home/you/.local/state/voice-paste/docker-transcribe.sock.
+Start the service with:  docker compose up -d
+```
+
+Fix it with:
+
+```bash
+cd voice-paste
+docker compose up -d          # confirm with: docker compose ps
+```
+
+Note that stopping the container by hand (`docker compose down`, or `docker stop`) **overrides
+`restart: unless-stopped`** — it will not come back on the next reboot, and must be started
+manually again.
+
+### Checking daemon state
+
+```bash
+ls ~/.local/state/voice-paste/     # docker-transcribe.sock = container up
+                                   # daemon.pid/daemon.sock = recording in progress
+```
+
+`daemon.pid` and `daemon.sock` are removed when a recording finishes — including when it fails.
+If a stale pair somehow survives (e.g. `SIGKILL`), the next `voice-paste toggle` clears them
+automatically via `is_running()`.
+
+---
+
 ## Roadmap
 
 | Version | Feature |
@@ -297,6 +336,8 @@ Auto-paste (`--auto-paste` via `ydotool`) is planned for v0.3 and requires extra
 | v0.4 | System-tray GUI with language/backend selectors ([#4](https://github.com/dremdem/push_to_terminal/issues/4)) |
 | v0.5 | Hotkey binding via GNOME gsettings ([#9](https://github.com/dremdem/push_to_terminal/issues/9)) |
 | **v0.6** | **Reproducible install — `install.sh` + `voice-paste install` (this release)** ([#11](https://github.com/dremdem/push_to_terminal/issues/11)) |
+| v0.7 | Auto-paste on by default ([#13](https://github.com/dremdem/push_to_terminal/pull/13)) |
+| **v0.8** | **Error notifications on transcription failure (this release)** ([#15](https://github.com/dremdem/push_to_terminal/issues/15)) |
 
 ---
 
