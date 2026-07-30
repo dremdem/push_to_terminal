@@ -85,6 +85,10 @@ cd voice-paste && uv run pytest -v
 
 Development follows TDD — tests are written before the implementation, and every change goes through its own issue, branch, and PR.
 
+## License
+
+[MIT](LICENSE) — use it, fork it, build on it.
+
 ---
 
 <sub>A personal project, built on Ubuntu with [Claude Code](https://claude.com/claude-code) — and dictated, increasingly, with itself.</sub>
