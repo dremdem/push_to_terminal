@@ -35,16 +35,37 @@ DEFAULT_KEEP_ALIVE = "30m"
 
 # Bump whenever the prompt changes — it is part of the cache key, so old
 # answers produced by an older prompt are never served again.
-PROMPT_VERSION = 1
+PROMPT_VERSION = 2
 
+# Version 1 opened with «Ты переводчик … для программиста» and asked for a
+# «краткий» translation.  Both were wrong outside documentation: on fiction the
+# model rendered `to your northeast` as «от цели» and dropped `our` entirely
+# (issue #25).  The base is now domain-neutral; anything domain-specific arrives
+# through the caller's hint.
 SYSTEM_PROMPT = (
-    "Ты переводчик с английского на русский для программиста. "
-    "Переводи точно и кратко, сохраняя смысл и тон оригинала. "
-    "Технические термины, имена API и названия инструментов "
-    "(Unix socket, daemon, hotkey, backend, push-to-talk и подобные) "
-    "НЕ переводи буквально — оставляй как есть или транслитерируй. "
+    "Ты профессиональный переводчик с английского на русский. "
+    "Переводи точно и естественно, сохраняя смысл, тон и регистр оригинала. "
+    "Ничего не опускай: каждое местоимение (our, your, my) обязано остаться. "
+    "Имена собственные и позывные оставляй латиницей. "
+    "Названия инструментов, протоколов и API (Unix socket, daemon, hotkey, "
+    "backend, push-to-talk) не переводи буквально — оставляй как есть. "
     "Выдай ТОЛЬКО перевод: без пояснений, без кавычек, без исходного текста."
 )
+
+
+def build_system_prompt(hint=None):
+    # type: (str) -> str
+    """Base prompt, optionally extended with what the caller knows about the text.
+
+    A bare genre label ("военный радиообмен") only recovers the pronouns.  What
+    actually repairs the jargon is spelling out the ambiguous words — telling the
+    model that `a hit` is засечка сигнала and not попадание снаряда.  The hint is
+    free text so it can carry either, or both.
+    """
+    hint = (hint or "").strip()
+    if not hint:
+        return SYSTEM_PROMPT
+    return SYSTEM_PROMPT + " Об этом тексте известно: " + hint
 
 
 # ── errors ────────────────────────────────────────────────────────────────────
@@ -110,8 +131,8 @@ def sentence_around(text, pos):
     return text[start:end].strip() or text.strip()
 
 
-def build_request(text, context=None):
-    # type: (str, str) -> dict
+def build_request(text, context=None, hint=None):
+    # type: (str, str, str) -> dict
     """Build the ``system``/``prompt`` pair sent to the model."""
     if context:
         # Asking for "the fragment in the context of this sentence" makes the
@@ -127,14 +148,16 @@ def build_request(text, context=None):
         ).format(text=text, context=context)
     else:
         prompt = text
-    return {"system": SYSTEM_PROMPT, "prompt": prompt}
+    # The hint goes in the system prompt only: repeating it in the user prompt
+    # invites the model to translate the hint along with the text.
+    return {"system": build_system_prompt(hint), "prompt": prompt}
 
 
 # ── cache ─────────────────────────────────────────────────────────────────────
 
-def cache_key(text, model, context):
-    # type: (str, str, str) -> str
-    parts = [str(PROMPT_VERSION), model, context or "", text]
+def cache_key(text, model, context, hint=None):
+    # type: (str, str, str, str) -> str
+    parts = [str(PROMPT_VERSION), model, context or "", hint or "", text]
     return hashlib.sha256("\x00".join(parts).encode("utf-8")).hexdigest()
 
 
@@ -272,9 +295,9 @@ class OllamaClient:
             "options": {"temperature": 0, "num_predict": num_predict},
         }
 
-    def translate(self, text, context=None):
-        # type: (str, str) -> str
-        request = build_request(text, context)
+    def translate(self, text, context=None, hint=None):
+        # type: (str, str, str) -> str
+        request = build_request(text, context, hint)
         body = self._body(request["system"], request["prompt"], 512)
         return self._post(body).get("response", "").strip()
 
@@ -302,21 +325,24 @@ class Translator:
         self._client = client
         self._cache = cache
 
-    def translate(self, text, context=None):
-        # type: (str, str) -> str
+    def translate(self, text, context=None, hint=None):
+        # type: (str, str, str) -> str
         normalized = normalize_selection(text)
         if not normalized:
             return ""
         normalized_context = normalize_selection(context) if context else None
+        normalized_hint = normalize_selection(hint) if hint else None
 
-        key = cache_key(normalized, self._client.model, normalized_context)
+        key = cache_key(
+            normalized, self._client.model, normalized_context, normalized_hint
+        )
         cached = self._cache.get(key)
         if cached is not None:
             return cached
 
         # A failure propagates without being cached: the next attempt should hit
         # the backend again rather than replay the error.
-        result = self._client.translate(normalized, normalized_context)
+        result = self._client.translate(normalized, normalized_context, normalized_hint)
         self._cache.set(key, result)
         return result
 

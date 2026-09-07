@@ -1,3 +1,4 @@
 [
-    { "caption": "Translate (EN → RU)", "command": "lingua_translate" }
+    { "caption": "Translate (EN → RU)", "command": "lingua_translate" },
+    { "caption": "Translate with a hint…", "command": "lingua_translate_with_hint" }
 ]

@@ -62,12 +62,44 @@ into Sublime's Python 3.8 plugin host.
 |---|---|
 | Translate the selection | `Ctrl+Alt+Shift+T` |
 | Translate the word under the caret | same key, with nothing selected |
+| Translate, saying what the text is about | `Ctrl+Alt+Shift+H` |
 | From the menu | right-click → *Translate (EN → RU)* |
 | From the palette | *Lingua: Translate selection (EN → RU)* |
 
 With nothing selected, the word under the caret is sent **together with its
 sentence**. That context is what decides between свинец and возглавить for
 `lead`, or берег and банк for `bank` — the word alone cannot.
+
+## Telling it what the text is about
+
+The model has no idea what it is reading. Out of the box it renders this radio
+exchange wrong in four places:
+
+```
+we got a hit … to your northeast … a more accurate read … our target?
+→ у нас ПОПАДАНИЕ … к северо-востоку ОТ ЦЕЛИ … более точную ОЦЕНКУ … Друзья цели?
+```
+
+`Ctrl+Alt+Shift+H` lets you say what it is looking at first. What you write
+matters more than you would expect:
+
+| Hint | `hit` | `your` | `our` | `read` |
+|---|---|---|---|---|
+| *(none)* | ✗ | ✗ | ✓ | ✗ |
+| `военный радиообмен` — genre only | ✗ | ✓ | ✓ | ✗ |
+| **glossing the actual words** | **✓** | **✓** | **✓** | **✓** |
+
+Naming the genre only recovers the dropped pronoun. What repairs the jargon is
+spelling out the ambiguous words:
+
+```
+военный радиообмен; 'a hit' — засечка сигнала, не попадание снаряда;
+'read' — показание/засечка; 'popped' — телефон засветился в сети
+```
+
+Set `hint` to apply one to every translation, or keep a few in `hints` to pick
+from the quick panel. The hint is part of the cache key, so the same sentence
+under two different hints is two different answers.
 
 ## Settings
 
@@ -79,6 +111,8 @@ sentence**. That context is what decides between свинец and возглав
 | `model` | `gemma3:4b` | Any model Ollama has pulled |
 | `timeout` | `20.0` | Seconds to wait for an answer |
 | `keep_alive` | `"30m"` | How long Ollama holds the model in VRAM |
+| `hint` | `""` | What the text is about, applied to every translation |
+| `hints` | *five presets* | Offered by *Translate with a hint…* |
 | `warm_up_on_start` | `true` | Load the model when Sublime starts |
 | `cache_path` | `~/.cache/sublime-lingua/cache.sqlite3` | Translation cache |
 
@@ -112,6 +146,17 @@ uv run pytest -v
 `uv` downloads CPython 3.8 for this package (pinned by `.python-version`), so
 anything that would fail inside Sublime's plugin host fails in the tests first.
 
+## How good is it, really
+
+For technical prose — the corpus it was tuned on — it is dependable.
+
+For fiction it conveys the sense but is not a faithful translation, and no
+prompt fixes that: `gemma3:4b` still writes «нашего цели» with the wrong gender,
+cyrillicises `Bravo` → «Браво», and occasionally drops a noun. `qwen3:8b` was
+measured on the same passage and is no better while being five times slower —
+and it does not fit in 8 GB. Read prose translations as a gist, not as text you
+would quote.
+
 ## Known gaps
 
 - **Hover mode** is not implemented yet — it needs debouncing and cancellation
@@ -119,4 +164,5 @@ anything that would fail inside Sublime's plugin host fails in the tests first.
 - **Dictionary entries** (part of speech, other senses) are not offered. Both
   local models tested gloss an isolated word unreliably; the sentence-level
   translation is the trustworthy part.
+- **The hint is manual.** Nothing detects the genre of the buffer for you.
 - Russian → English is not wired up; the prompt is one-directional.

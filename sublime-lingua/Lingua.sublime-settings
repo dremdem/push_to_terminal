@@ -17,6 +17,26 @@
     // Load the model when Sublime starts, so the first lookup is fast.
     "warm_up_on_start": true,
 
+    // What the text is about, applied to every translation.  Free text.
+    //
+    // Naming the genre alone helps only a little — it recovers dropped pronouns.
+    // What actually fixes jargon is spelling out the ambiguous words, e.g.:
+    //   "военный радиообмен; 'a hit' — засечка сигнала, не попадание снаряда;
+    //    'read' — показание; 'popped' — телефон засветился в сети"
+    //
+    // Leave empty for a plain translation, and use
+    // "Lingua: Translate with a hint…" to pick one per selection instead.
+    "hint": "",
+
+    // Presets offered by "Lingua: Translate with a hint…".
+    "hints": [
+        "техническая документация по программированию",
+        "художественная проза, современный диалог",
+        "военный/полицейский радиообмен; 'a hit' — засечка сигнала, не попадание снаряда; 'read' — показание/засечка",
+        "юридический документ",
+        "медицинский текст"
+    ],
+
     // Translations are deterministic, so they are cached forever.
     // Delete this file to clear the cache.
     "cache_path": "~/.cache/sublime-lingua/cache.sqlite3"

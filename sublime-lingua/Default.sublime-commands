@@ -2,5 +2,9 @@
     {
         "caption": "Lingua: Translate selection (EN → RU)",
         "command": "lingua_translate"
+    },
+    {
+        "caption": "Lingua: Translate with a hint…",
+        "command": "lingua_translate_with_hint"
     }
 ]
