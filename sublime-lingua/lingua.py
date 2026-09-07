@@ -10,29 +10,16 @@ import threading
 import sublime
 import sublime_plugin
 
-# Sublime imports files in Packages/<Dir>/ as <Dir>.<module>, so the relative
-# import is the correct one.  The fallback keeps the file importable when it is
-# loaded outside a package (a plain Packages/User drop-in, or a REPL).
+# Import the MODULE, never its names.  Sublime hot-reloads a changed file with
+# importlib.reload, which mutates the existing module object in place: attribute
+# lookups pick up the new code, while names bound by `from … import …` stay
+# pinned to whatever was captured at first import.  Mixing the two is what made
+# a reloaded lingua.py call into a stale lingua_core and fail with
+# "translate() takes from 2 to 3 positional arguments but 4 were given" (#27).
 try:
-    from .lingua_core import (
-        Cache,
-        OllamaClient,
-        TranslateError,
-        Translator,
-        render_error,
-        render_popup,
-        sentence_around,
-    )
+    from . import lingua_core as core
 except (ImportError, ValueError):  # pragma: no cover - depends on how ST loads us
-    from lingua_core import (
-        Cache,
-        OllamaClient,
-        TranslateError,
-        Translator,
-        render_error,
-        render_popup,
-        sentence_around,
-    )
+    import lingua_core as core
 
 SETTINGS_FILE = "Lingua.sublime-settings"
 POPUP_MAX_WIDTH = 700
@@ -53,36 +40,25 @@ def _settings():
     return sublime.load_settings(SETTINGS_FILE)
 
 
-_translator = None
-_client = None
-_translator_lock = threading.Lock()
-
-
 def _make_translator():
-    """Build (and memoise) the translator from the current settings."""
-    global _translator, _client
-    with _translator_lock:
-        if _translator is None:
-            settings = _settings()
-            _client = OllamaClient(
-                url=settings.get("url", "http://localhost:11434"),
-                model=settings.get("model", "gemma3:4b"),
-                timeout=float(settings.get("timeout", 20.0)),
-                keep_alive=settings.get("keep_alive", "30m"),
-            )
-            cache_path = os.path.expanduser(
-                settings.get("cache_path", "~/.cache/sublime-lingua/cache.sqlite3")
-            )
-            _translator = Translator(client=_client, cache=Cache(cache_path))
-        return _translator, _client
+    """Build a translator from the current settings.
 
-
-def _reset_translator():
-    """Drop the memoised translator so edited settings take effect."""
-    global _translator, _client
-    with _translator_lock:
-        _translator = None
-        _client = None
+    Deliberately not memoised: a cached instance would outlive a reload of
+    ``lingua_core`` and keep running the old code, and the saving is ~0.2 ms
+    against a ~400 ms model call — ``Cache`` opens a connection per query
+    anyway.
+    """
+    settings = _settings()
+    client = core.OllamaClient(
+        url=settings.get("url", "http://localhost:11434"),
+        model=settings.get("model", "gemma3:4b"),
+        timeout=float(settings.get("timeout", 20.0)),
+        keep_alive=settings.get("keep_alive", "30m"),
+    )
+    cache_path = os.path.expanduser(
+        settings.get("cache_path", "~/.cache/sublime-lingua/cache.sqlite3")
+    )
+    return core.Translator(client=client, cache=core.Cache(cache_path)), client
 
 
 def _next_seq():
@@ -119,7 +95,7 @@ def _selection_and_context(view):
 
     line_region = view.line(point)
     line = view.substr(line_region)
-    context = sentence_around(line, point - line_region.begin())
+    context = core.sentence_around(line, point - line_region.begin())
     if context == word:
         context = None
     return word, context, word_region.begin()
@@ -147,11 +123,11 @@ class LinguaTranslateCommand(sublime_plugin.TextCommand):
         translator, _ = _make_translator()
         try:
             translation = translator.translate(text, context, hint)
-            html = render_popup(text, translation) if translation else None
-        except TranslateError as exc:
-            html = render_error(exc)
+            html = core.render_popup(text, translation) if translation else None
+        except core.TranslateError as exc:
+            html = core.render_error(exc)
         except Exception as exc:  # never let a worker thread die silently
-            html = render_error(TranslateError(str(exc)))
+            html = core.render_error(core.TranslateError(str(exc)))
 
         if html is None:
             sublime.set_timeout(lambda: sublime.status_message("Lingua: empty answer"), 0)
@@ -228,10 +204,6 @@ def plugin_loaded():
         _, client = _make_translator()
         client.warm_up()
 
-    _settings().add_on_change("lingua", _reset_translator)
     # Settings are not available the instant the plugin loads.
     sublime.set_timeout(lambda: threading.Thread(target=warm, daemon=True).start(), 500)
 
-
-def plugin_unloaded():
-    _settings().clear_on_change("lingua")
