@@ -43,6 +43,11 @@ POPUP_MAX_HEIGHT = 500
 _request_seq = 0
 _seq_lock = threading.Lock()
 
+# Last hint picked from the quick panel, offered again next time.
+_last_hint = ""
+
+NO_HINT = ""  # an explicit "translate it plain", distinct from "use the setting"
+
 
 def _settings():
     return sublime.load_settings(SETTINGS_FILE)
@@ -123,22 +128,25 @@ def _selection_and_context(view):
 class LinguaTranslateCommand(sublime_plugin.TextCommand):
     """Translate the selection (or the word under the caret) into a popup."""
 
-    def run(self, edit):
+    def run(self, edit, hint=None):
         text, context, point = _selection_and_context(self.view)
         if not text.strip():
             sublime.status_message("Lingua: nothing selected")
             return
 
+        if hint is None:
+            hint = _settings().get("hint", "")
+
         seq = _next_seq()
         sublime.status_message("Lingua: translating…")
         threading.Thread(
-            target=self._work, args=(text, context, point, seq), daemon=True
+            target=self._work, args=(text, context, point, seq, hint), daemon=True
         ).start()
 
-    def _work(self, text, context, point, seq):
+    def _work(self, text, context, point, seq, hint):
         translator, _ = _make_translator()
         try:
-            translation = translator.translate(text, context)
+            translation = translator.translate(text, context, hint)
             html = render_popup(text, translation) if translation else None
         except TranslateError as exc:
             html = render_error(exc)
@@ -161,6 +169,55 @@ class LinguaTranslateCommand(sublime_plugin.TextCommand):
             max_width=POPUP_MAX_WIDTH,
             max_height=POPUP_MAX_HEIGHT,
         )
+
+
+class LinguaTranslateWithHintCommand(sublime_plugin.TextCommand):
+    """Pick what the text is about, then translate.
+
+    A hint is what rescues jargon: naming the genre alone only recovers the
+    pronouns, while spelling out the ambiguous words ("'a hit' — засечка
+    сигнала, не попадание снаряда") fixes the terms too.  See issue #25.
+    """
+
+    def run(self, edit):
+        window = self.view.window()
+        if window is None:
+            return
+
+        presets = [str(h) for h in _settings().get("hints", []) if str(h).strip()]
+        configured = str(_settings().get("hint", "")).strip()
+
+        options = []          # (label, subtitle, hint)
+        options.append(("Без подсказки", "перевести как есть", NO_HINT))
+        if configured:
+            options.append(("Из настроек", configured, configured))
+        if _last_hint and _last_hint != configured:
+            options.append(("Прошлая подсказка", _last_hint, _last_hint))
+        for preset in presets:
+            options.append((preset[:60], "пресет", preset))
+        options.append(("Своя подсказка…", "ввести текст", None))
+
+        def on_done(index):
+            if index < 0:
+                return
+            _, _, hint = options[index]
+            if hint is None:
+                window.show_input_panel(
+                    "О чём текст (и как переводить спорные слова):",
+                    _last_hint,
+                    self._apply,
+                    None,
+                    None,
+                )
+                return
+            self._apply(hint)
+
+        window.show_quick_panel([[a, b] for a, b, _ in options], on_done)
+
+    def _apply(self, hint):
+        global _last_hint
+        _last_hint = hint.strip()
+        self.view.run_command("lingua_translate", {"hint": _last_hint})
 
 
 def plugin_loaded():

@@ -60,6 +60,45 @@ def test_system_prompt_tells_the_model_to_keep_technical_terms():
     assert "push-to-talk" in system
 
 
+def test_system_prompt_is_not_locked_to_technical_text():
+    # The first prompt opened with «переводчик … для программиста» and asked for a
+    # «краткий» translation.  On fiction that swapped `to your northeast` for
+    # «от цели» and dropped `our` — see issue #25.
+    system = lc.SYSTEM_PROMPT.lower()
+    assert "для программиста" not in system
+    assert "кратко" not in system
+
+
+def test_system_prompt_forbids_dropping_pronouns():
+    assert "our" in lc.SYSTEM_PROMPT and "your" in lc.SYSTEM_PROMPT
+
+
+def test_build_system_prompt_without_a_hint_is_the_base():
+    assert lc.build_system_prompt() == lc.SYSTEM_PROMPT
+    assert lc.build_system_prompt(None) == lc.SYSTEM_PROMPT
+
+
+def test_build_system_prompt_appends_the_hint():
+    system = lc.build_system_prompt("'a hit' — засечка сигнала")
+    assert system.startswith(lc.SYSTEM_PROMPT)
+    assert "'a hit' — засечка сигнала" in system
+
+
+def test_blank_hint_is_treated_as_no_hint():
+    assert lc.build_system_prompt("   \n ") == lc.SYSTEM_PROMPT
+
+
+def test_hint_reaches_the_request_system_prompt():
+    body = lc.build_request("x", hint="военный радиообмен")
+    assert "военный радиообмен" in body["system"]
+
+
+def test_hint_does_not_leak_into_the_user_prompt():
+    # The hint belongs in the system prompt; repeating it in the prompt invites
+    # the model to translate the hint itself.
+    assert "военный" not in lc.build_request("x", hint="военный радиообмен")["prompt"]
+
+
 def test_build_request_includes_context_when_given():
     body = lc.build_request("lead", context="Copper wire has a lead core.")
     assert "Copper wire has a lead core." in body["prompt"]
@@ -84,6 +123,11 @@ def test_build_request_omits_context_section_when_absent():
 
 def test_cache_key_is_stable():
     assert lc.cache_key("hello", "gemma3:4b", None) == lc.cache_key("hello", "gemma3:4b", None)
+
+
+def test_cache_key_varies_by_hint():
+    base = lc.cache_key("hello", "gemma3:4b", None, None)
+    assert base != lc.cache_key("hello", "gemma3:4b", None, "военный радиообмен")
 
 
 def test_cache_key_varies_by_text_model_and_context():
@@ -290,3 +334,41 @@ def test_render_error_names_the_problem():
 
 def test_render_error_escapes_the_message():
     assert "<b>" not in lc.render_error(lc.TranslateError("<b>boom</b>"))
+
+
+# ── hint plumbing ─────────────────────────────────────────────────────────────
+
+def test_client_sends_the_hint_in_the_system_prompt():
+    t = FakeTransport()
+    lc.OllamaClient(transport=t).translate("x", hint="военный радиообмен")
+    assert "военный радиообмен" in t.calls[0]["body"]["system"]
+
+
+def test_translator_passes_the_hint_through(tmp_path):
+    t = FakeTransport()
+    tr = lc.Translator(client=lc.OllamaClient(transport=t), cache=lc.Cache(tmp_path / "c.db"))
+    tr.translate("x", hint="военный радиообмен")
+    assert "военный радиообмен" in t.calls[0]["body"]["system"]
+
+
+def test_translator_caches_per_hint(tmp_path):
+    t = FakeTransport()
+    tr = lc.Translator(client=lc.OllamaClient(transport=t), cache=lc.Cache(tmp_path / "c.db"))
+    tr.translate("The bank refused the loan.")
+    tr.translate("The bank refused the loan.", hint="финансовый отчёт")
+    tr.translate("The bank refused the loan.", hint="финансовый отчёт")
+    assert len(t.calls) == 2  # no hint, then the hinted one — the third is cached
+
+
+def test_translator_normalizes_the_hint_before_keying(tmp_path):
+    t = FakeTransport()
+    tr = lc.Translator(client=lc.OllamaClient(transport=t), cache=lc.Cache(tmp_path / "c.db"))
+    tr.translate("x", hint="военный радиообмен")
+    tr.translate("x", hint="  военный\n  радиообмен  ")
+    assert len(t.calls) == 1
+
+
+def test_warm_up_still_works_with_the_new_base_prompt():
+    t = FakeTransport()
+    lc.OllamaClient(transport=t).warm_up()
+    assert t.calls[0]["body"]["system"] == lc.SYSTEM_PROMPT

@@ -1,4 +1,6 @@
 [
     // Mirrors voice-paste's ctrl+alt+shift+p, one key over.
-    { "keys": ["ctrl+alt+shift+t"], "command": "lingua_translate" }
+    { "keys": ["ctrl+alt+shift+t"], "command": "lingua_translate" },
+    // Same, but asks what the text is about first.
+    { "keys": ["ctrl+alt+shift+h"], "command": "lingua_translate_with_hint" }
 ]
