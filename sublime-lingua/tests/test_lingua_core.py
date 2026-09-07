@@ -372,3 +372,30 @@ def test_warm_up_still_works_with_the_new_base_prompt():
     t = FakeTransport()
     lc.OllamaClient(transport=t).warm_up()
     assert t.calls[0]["body"]["system"] == lc.SYSTEM_PROMPT
+
+
+# ── reload safety (issue #27) ─────────────────────────────────────────────────
+
+def _lingua_source():
+    import pathlib
+    return (pathlib.Path(__file__).resolve().parent.parent / "lingua.py").read_text(
+        encoding="utf-8"
+    )
+
+
+def test_glue_imports_the_core_module_rather_than_its_names():
+    # Sublime hot-reloads a changed file with importlib.reload, which mutates the
+    # existing module object.  Attribute lookups see the new code; names bound by
+    # `from … import …` keep pointing at the objects captured at first import.
+    # That mismatch is what produced "translate() takes from 2 to 3 positional
+    # arguments but 4 were given" after #26 — the glue was new, the core was old.
+    source = _lingua_source()
+    assert "from .lingua_core import" not in source
+    assert "from lingua_core import" not in source
+    assert "import lingua_core" in source
+
+
+def test_glue_does_not_memoise_core_objects_across_reloads():
+    # A cached Translator built from the pre-reload class survives even when both
+    # modules reload.  The saving was ~0.2 ms against a ~400 ms model call.
+    assert "_translator = None" not in _lingua_source()

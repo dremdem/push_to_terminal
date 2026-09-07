@@ -146,6 +146,20 @@ uv run pytest -v
 `uv` downloads CPython 3.8 for this package (pinned by `.python-version`), so
 anything that would fail inside Sublime's plugin host fails in the tests first.
 
+**One rule when editing `lingua.py`: import the module, never its names.**
+
+```python
+from . import lingua_core as core     # yes — core.Translator resolves at call time
+from .lingua_core import Translator   # no  — pinned to the class captured at import
+```
+
+Sublime hot-reloads changed files with `importlib.reload`, which mutates the
+existing module object in place. Names bound by `from … import …` keep pointing
+at the pre-reload objects, so a reloaded `lingua.py` calling into a stale
+`lingua_core` fails with an arity error that disappears on restart and is
+invisible to the tests. A test asserts the import style to keep it from coming
+back.
+
 ## How good is it, really
 
 For technical prose — the corpus it was tuned on — it is dependable.
