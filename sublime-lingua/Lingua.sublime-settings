@@ -1,0 +1,23 @@
+{
+    // Where the local Ollama server listens.
+    "url": "http://localhost:11434",
+
+    // Model used for translation.  gemma3:4b was chosen by benchmark: it keeps
+    // technical terminology intact where opus-mt mangles it, fits in 8 GB of
+    // VRAM, and answers a sentence in ~400 ms.  Pull it with:
+    //     ollama pull gemma3:4b
+    "model": "gemma3:4b",
+
+    // Seconds to wait for an answer.  A cold model load costs ~3 s.
+    "timeout": 20.0,
+
+    // How long Ollama keeps the model in VRAM after the last request.
+    "keep_alive": "30m",
+
+    // Load the model when Sublime starts, so the first lookup is fast.
+    "warm_up_on_start": true,
+
+    // Translations are deterministic, so they are cached forever.
+    // Delete this file to clear the cache.
+    "cache_path": "~/.cache/sublime-lingua/cache.sqlite3"
+}
