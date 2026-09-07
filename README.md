@@ -66,10 +66,26 @@ voice-paste test-mic                 # confirm audio is being captured
 | Path | What's in it |
 |---|---|
 | [`voice-paste/`](voice-paste/) | The application, its tests, and the complete docs |
+| [`sublime-lingua/`](sublime-lingua/) | Sublime Text plugin: EN→RU translation popup, same local-only rule |
 | [`voice-paste/voice_paste/`](voice-paste/voice_paste/) | Source: daemon, recorder, transcriber, clipboard, tray, hotkey |
 | [`voice-paste/docker/`](voice-paste/docker/) | GPU transcription container |
 | [`ubuntu_voice_paste_agent_task.md`](ubuntu_voice_paste_agent_task.md) | Original product spec |
 | [`CLAUDE.md`](CLAUDE.md) | Contributor guidelines (TDD, `uv`, branch-per-issue) |
+
+## Also in here: sublime-lingua
+
+The same idea pointed the other way. `voice-paste` turns your speech into text;
+[`sublime-lingua/`](sublime-lingua/) turns English text you are reading into
+Russian — select a phrase in Sublime Text, press a key, get a popup.
+
+```
+Ctrl+Alt+Shift+T  →  "coordinated over a Unix socket"  →  "координируемый через Unix socket"
+```
+
+It runs on a local `gemma3:4b` through Ollama. A dedicated translation model
+was benchmarked first and rejected: it renders `Unix socket` as «розетка» and
+`push-to-talk` as «толкнуть к разговору», which is useless for reading code.
+Details in [`sublime-lingua/README.md`](sublime-lingua/README.md).
 
 ## Requirements
 

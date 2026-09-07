@@ -1,0 +1,20 @@
+[project]
+name = "sublime-lingua"
+version = "0.1.0"
+description = "Sublime Text plugin: EN→RU translation popup, powered by a local Ollama model"
+license = "MIT"
+# Sublime Text 4's plugin host is Python 3.8 (opted into by the .python-version
+# file above).  Tests run on the same interpreter so anything that would break
+# inside Sublime breaks in CI first.
+requires-python = ">=3.8,<3.9"
+# No runtime dependencies, ever: Sublime has no pip, and the package is
+# installed by copying it into Packages/.  urllib and sqlite3 ship with the host.
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest>=8,<8.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

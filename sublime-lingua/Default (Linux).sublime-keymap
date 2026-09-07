@@ -1,0 +1,4 @@
+[
+    // Mirrors voice-paste's ctrl+alt+shift+p, one key over.
+    { "keys": ["ctrl+alt+shift+t"], "command": "lingua_translate" }
+]
