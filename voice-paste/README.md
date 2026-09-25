@@ -287,6 +287,42 @@ Auto-paste (`--auto-paste` via `ydotool`) is planned for v0.3 and requires extra
 
 ---
 
+## Logs and rescued text
+
+Both live in their own directory, away from the socket and PID file:
+
+```
+~/.local/state/voice-paste/log/
+├── voice-paste.log   what happened, rotated at 1 MB × 3
+└── rescued.txt       transcriptions the clipboard refused
+```
+
+The daemon is spawned with `stderr=DEVNULL`, so the log is the only record of
+what it did. It carries the backend in use, how long transcription took, and
+every clipboard attempt:
+
+```
+2026-09-25 09:56:23 WARNING voice_paste.clipboard: clipboard write failed (attempt 1/3): …
+2026-09-25 09:56:24 ERROR   voice_paste.clipboard: clipboard write failed after 3 attempts
+```
+
+### When the clipboard refuses
+
+`wl-copy` does a round-trip to the compositor and waits for it. A healthy call
+takes ~64 ms; when GNOME Shell stalls, it can hang past the 5 s timeout instead.
+
+Writes are retried three times with a growing pause (0.25 s, 0.5 s), which
+covers a transient stall. If all three fail, the transcription is **appended**
+to `rescued.txt` with the date and time, and the notification names the file —
+so the text survives even though the clipboard never got it:
+
+```
+──────────── 2026-09-25 09:56:24 ────────────
+текст который нельзя потерять
+```
+
+A missing `wl-copy` is not retried: no number of attempts installs a package.
+
 ## Troubleshooting
 
 ### Nothing happens after pressing the hotkey
@@ -312,6 +348,22 @@ docker compose up -d          # confirm with: docker compose ps
 Note that stopping the container by hand (`docker compose down`, or `docker stop`) **overrides
 `restart: unless-stopped`** — it will not come back on the next reboot, and must be started
 manually again.
+
+### "Error: Command '['/usr/bin/wl-copy']' timed out"
+
+The recording and the transcription both succeeded; only the clipboard write
+failed. The text is not lost — look in `~/.local/state/voice-paste/log/rescued.txt`,
+where the notification pointed.
+
+Then check `voice-paste.log` for how many attempts were made, and the compositor:
+
+```bash
+journalctl --user -b --since "1 hour ago" | grep -c stack_position
+```
+
+Repeated `meta_window_set_stack_position` assertions mean GNOME Shell is in
+trouble, which is enough to stall every Wayland round-trip including this one.
+Restarting the session clears it.
 
 ### Checking daemon state
 

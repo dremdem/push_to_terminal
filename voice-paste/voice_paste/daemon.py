@@ -19,6 +19,7 @@ import socket
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 SOCK_PATH = Path.home() / ".local" / "state" / "voice-paste" / "daemon.sock"
@@ -61,13 +62,37 @@ def spawn(language: str = "auto", target: str = "clipboard", auto_paste: bool = 
     )
 
 
+def _rescue_or_report(text, exc, notify, rescue, logger) -> None:
+    """Write the transcription down and tell the user where it went."""
+    try:
+        path = rescue.save(text)
+    except Exception:
+        # Nowhere to put it.  Losing the text is bad; taking the daemon down on
+        # the way out would be worse.
+        logger.exception("rescue failed as well; the transcription is lost")
+        notify.notify(f"Error: {exc}", "voice-paste")
+        return
+    logger.info("transcription rescued to %s", path)
+    notify.notify(f"Clipboard failed — text saved to {path}", "voice-paste")
+
+
 def run(config) -> None:
     """Daemon main loop — called by the hidden _daemon CLI command."""
-    from voice_paste import clipboard, notify, postprocess, recorder
+    from voice_paste import clipboard, log as log_mod, notify, postprocess, recorder, rescue
     from voice_paste import transcriber as trans_mod
+
+    log_mod.setup()
+    logger = log_mod.get(__name__)
 
     SOCK_PATH.parent.mkdir(parents=True, exist_ok=True)
     PID_PATH.write_text(str(os.getpid()))
+    logger.info(
+        "daemon started pid=%s backend=%s language=%s target=%s",
+        os.getpid(),
+        config.transcription.backend,
+        config.language,
+        config.target,
+    )
 
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
         wav_path = Path(f.name)
@@ -101,12 +126,25 @@ def run(config) -> None:
             config.transcription.vad_method,
         )
         lang = config.language if config.language != "auto" else None
+        started = time.monotonic()
         text = t.transcribe(wav_path, lang)
         text = postprocess.process(text, terminal_mode=(config.target == "terminal"))
+        logger.info(
+            "transcribed %d chars in %.1fs", len(text), time.monotonic() - started
+        )
 
-        clipboard.copy(text)
         preview = text[:60] + ("…" if len(text) > 60 else "")
+        try:
+            clipboard.copy(text)
+        except clipboard.ClipboardError as exc:
+            # The recording is about to be deleted by the finally below and the
+            # transcription exists nowhere else, so it has to be written down
+            # before this exception is allowed to end the run (#29).
+            logger.error("clipboard unreachable: %s", exc)
+            _rescue_or_report(text, exc, notify, rescue, logger)
+            return
         notify.notify(f'Copied: "{preview}"', "voice-paste")
+        logger.info("copied to clipboard")
 
         if config.auto_paste:
             from voice_paste.paste import paste, PasteError

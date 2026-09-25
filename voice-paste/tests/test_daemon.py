@@ -354,3 +354,82 @@ def test_daemon_still_silences_paste_error(mocker, tmp_path):
     assert not any("Error" in m for m in messages), (
         f"PasteError must not raise a user-visible error; got: {messages}"
     )
+
+
+# ── clipboard failure must not lose the transcription (issue #29) ─────────────
+
+def test_daemon_rescues_the_text_when_the_clipboard_fails(mocker, tmp_path):
+    """The expensive work is already done by the time the clipboard is touched.
+
+    Before #29 a clipboard timeout meant the transcription was discarded and the
+    recording deleted in the `finally`, leaving nothing to recover.
+    """
+    from voice_paste.clipboard import ClipboardError
+
+    rescued = tmp_path / "rescued.txt"
+    mocker.patch("voice_paste.rescue.default_path", return_value=rescued)
+    mocker.patch("voice_paste.recorder.RecordingStream")
+    mocker.patch("voice_paste.notify.notify")
+    mocker.patch(
+        "voice_paste.clipboard.copy",
+        side_effect=ClipboardError("Could not write to the clipboard after 3 attempts"),
+    )
+    mocker.patch(
+        "voice_paste.transcriber.create_transcriber"
+    ).return_value.transcribe.return_value = "текст который нельзя потерять"
+
+    errors, _, _ = _run_daemon_until_stop(mocker, tmp_path)
+
+    assert not errors, f"run() should handle the failure, not propagate it: {errors}"
+    assert rescued.exists(), "the transcription must survive a clipboard failure"
+    assert "текст который нельзя потерять" in rescued.read_text(encoding="utf-8")
+
+
+def test_daemon_tells_the_user_where_the_rescued_text_went(mocker, tmp_path):
+    from voice_paste.clipboard import ClipboardError
+
+    rescued = tmp_path / "rescued.txt"
+    mocker.patch("voice_paste.rescue.default_path", return_value=rescued)
+    mocker.patch("voice_paste.recorder.RecordingStream")
+    mock_notify = mocker.patch("voice_paste.notify.notify")
+    mocker.patch("voice_paste.clipboard.copy", side_effect=ClipboardError("boom"))
+    mocker.patch(
+        "voice_paste.transcriber.create_transcriber"
+    ).return_value.transcribe.return_value = "текст"
+
+    _run_daemon_until_stop(mocker, tmp_path)
+
+    messages = [call.args[0] for call in mock_notify.call_args_list]
+    assert any(rescued.name in m for m in messages), (
+        f"the notification must name the rescue file; got: {messages}"
+    )
+
+
+def test_daemon_survives_a_failing_rescue(mocker, tmp_path):
+    """A rescue that cannot be written is still better than a crashed daemon."""
+    from voice_paste.clipboard import ClipboardError
+
+    mocker.patch("voice_paste.recorder.RecordingStream")
+    mocker.patch("voice_paste.notify.notify")
+    mocker.patch("voice_paste.clipboard.copy", side_effect=ClipboardError("boom"))
+    mocker.patch("voice_paste.rescue.save", side_effect=OSError("read-only file system"))
+    mocker.patch(
+        "voice_paste.transcriber.create_transcriber"
+    ).return_value.transcribe.return_value = "текст"
+
+    errors, _, _ = _run_daemon_until_stop(mocker, tmp_path)
+    assert not errors, f"a failed rescue must not propagate: {errors}"
+
+
+def test_daemon_does_not_rescue_when_the_clipboard_works(mocker, tmp_path):
+    rescued = tmp_path / "rescued.txt"
+    mocker.patch("voice_paste.rescue.default_path", return_value=rescued)
+    mocker.patch("voice_paste.recorder.RecordingStream")
+    mocker.patch("voice_paste.notify.notify")
+    mocker.patch("voice_paste.clipboard.copy")
+    mocker.patch(
+        "voice_paste.transcriber.create_transcriber"
+    ).return_value.transcribe.return_value = "текст"
+
+    _run_daemon_until_stop(mocker, tmp_path)
+    assert not rescued.exists()

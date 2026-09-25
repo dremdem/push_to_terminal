@@ -10,12 +10,22 @@ from typing import Optional
 import typer
 from rich.console import Console
 
-from voice_paste import clipboard, daemon, notify, paste as paste_mod, postprocess, recorder
+from voice_paste import clipboard, daemon, log as log_mod, notify, paste as paste_mod, postprocess, recorder, rescue
 from voice_paste import transcriber as trans_mod
 from voice_paste.config import load_config
 
 app = typer.Typer(help="Ubuntu voice-to-clipboard utility (Wayland-safe).")
 console = Console()
+
+
+@app.callback()
+def _main() -> None:
+    """Set up file logging before any command runs.
+
+    The daemon spawned by `start` re-runs this in its own process; both write
+    to the same rotating file.
+    """
+    log_mod.setup()
 
 
 @app.command()
@@ -54,7 +64,16 @@ def record(
         text = t.transcribe(wav_path, lang)
         text = postprocess.process(text, terminal_mode=(target == "terminal"))
 
-        clipboard.copy(text)
+        try:
+            clipboard.copy(text)
+        except clipboard.ClipboardError as exc:
+            # Recording and transcription both succeeded; the text exists
+            # nowhere else and the wav is deleted in the finally below (#29).
+            path = rescue.save(text)
+            console.print(f"[yellow]⚠  Clipboard unreachable:[/yellow] {exc}")
+            console.print(f"[yellow]   Text saved to:[/yellow] {path}")
+            notify.notify(f"Clipboard failed — text saved to {path}", "voice-paste")
+            return
         console.print(f'[green]✅  Copied to clipboard:[/green]\n"{text}"')
         notify.notify(f'Copied: "{text[:60]}"', "voice-paste")
 
