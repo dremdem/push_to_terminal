@@ -116,3 +116,39 @@ def test_record_never_executes_commands(mocker):
     assert result.exit_code == 0
     text = mock_copy.call_args[0][0]
     assert not text.endswith("\n")
+
+
+# ── clipboard failure must not lose the transcription (issue #29) ─────────────
+
+def test_record_rescues_the_text_when_the_clipboard_fails(mocker, tmp_path):
+    from voice_paste.clipboard import ClipboardError
+
+    rescued = tmp_path / "rescued.txt"
+    mocker.patch("voice_paste.rescue.default_path", return_value=rescued)
+    mocker.patch("voice_paste.recorder.record_fixed")
+    mocker.patch("voice_paste.notify.notify")
+    mocker.patch("voice_paste.clipboard.copy", side_effect=ClipboardError("timed out"))
+    mocker.patch(
+        "voice_paste.transcriber.create_transcriber"
+    ).return_value.transcribe.return_value = "текст который нельзя потерять"
+
+    result = runner.invoke(app, ["record", "--duration", "1"])
+
+    assert rescued.exists(), "a clipboard failure must not discard the transcription"
+    assert "текст который нельзя потерять" in rescued.read_text(encoding="utf-8")
+    assert rescued.name in result.output
+
+
+def test_record_does_not_rescue_when_the_clipboard_works(mocker, tmp_path):
+    rescued = tmp_path / "rescued.txt"
+    mocker.patch("voice_paste.rescue.default_path", return_value=rescued)
+    mocker.patch("voice_paste.recorder.record_fixed")
+    mocker.patch("voice_paste.notify.notify")
+    mocker.patch("voice_paste.clipboard.copy")
+    mocker.patch("voice_paste.paste.paste")
+    mocker.patch(
+        "voice_paste.transcriber.create_transcriber"
+    ).return_value.transcribe.return_value = "текст"
+
+    runner.invoke(app, ["record", "--duration", "1"])
+    assert not rescued.exists()
