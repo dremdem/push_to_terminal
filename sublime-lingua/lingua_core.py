@@ -29,9 +29,11 @@ import urllib.request
 DEFAULT_URL = "http://localhost:11434"
 DEFAULT_MODEL = "gemma3:4b"
 DEFAULT_TIMEOUT = 20.0
-# Long enough to survive a coffee break: a cold load costs ~3 s, and open-webui
-# on the same machine will happily evict the model if we let it go idle.
-DEFAULT_KEEP_ALIVE = "30m"
+# Long enough to stay warm across a reading session, short enough to give the
+# card back afterwards.  gemma3:4b is 3830 MiB resident on an 8 GB GPU that also
+# draws the desktop, so holding it for half an hour cost far more than the ~3 s
+# cold load it saved (#31).
+DEFAULT_KEEP_ALIVE = "5m"
 
 # Bump whenever the prompt changes — it is part of the cache key, so old
 # answers produced by an older prompt are never served again.

@@ -12,10 +12,16 @@
     "timeout": 20.0,
 
     // How long Ollama keeps the model in VRAM after the last request.
-    "keep_alive": "30m",
+    // gemma3:4b is ~3.8 GB resident, on a card that also draws your desktop —
+    // so it is held through a reading session and released soon after, rather
+    // than parked for half an hour.
+    "keep_alive": "5m",
 
-    // Load the model when Sublime starts, so the first lookup is fast.
-    "warm_up_on_start": true,
+    // Load the model when Sublime starts, before you translate anything.
+    // Off by default: it saves ~3 s on the first lookup and costs ~3.8 GB of
+    // VRAM for the whole time the editor is open.  Turn it on only if your
+    // GPU has room to spare.
+    "warm_up_on_start": false,
 
     // What the text is about, applied to every translation.  Free text.
     //

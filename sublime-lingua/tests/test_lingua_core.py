@@ -399,3 +399,40 @@ def test_glue_does_not_memoise_core_objects_across_reloads():
     # A cached Translator built from the pre-reload class survives even when both
     # modules reload.  The saving was ~0.2 ms against a ~400 ms model call.
     assert "_translator = None" not in _lingua_source()
+
+
+# ── resource defaults (issue #31) ─────────────────────────────────────────────
+# These are pinned by test because getting them wrong does not break the
+# feature — it just makes the whole desktop slow, which nothing else notices.
+# Opening Sublime used to park 3830 MiB on an 8 GB card before a single
+# translation; unloading the model took free VRAM from 1874 to 5701 MiB.
+
+def _settings_json():
+    import json
+    import pathlib
+    import re
+
+    raw = (pathlib.Path(__file__).resolve().parent.parent / "Lingua.sublime-settings").read_text(
+        encoding="utf-8"
+    )
+    return json.loads(re.sub(r"^\s*//.*$", "", raw, flags=re.M))
+
+
+def test_the_model_is_not_loaded_just_because_the_editor_opened():
+    assert _settings_json()["warm_up_on_start"] is False
+
+
+def test_an_absent_warm_up_setting_does_not_warm_up():
+    # The code fallback matters as much as the shipped file: a user whose
+    # settings predate this key must not get the old behaviour back.
+    source = _lingua_source()
+    assert 'get("warm_up_on_start", True)' not in source
+    assert 'get("warm_up_on_start", False)' in source
+
+
+def test_the_model_is_released_soon_after_use():
+    assert _settings_json()["keep_alive"] == "5m"
+
+
+def test_core_default_keep_alive_matches_the_shipped_setting():
+    assert lc.DEFAULT_KEEP_ALIVE == _settings_json()["keep_alive"]

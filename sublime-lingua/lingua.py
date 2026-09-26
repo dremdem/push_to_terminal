@@ -197,9 +197,14 @@ class LinguaTranslateWithHintCommand(sublime_plugin.TextCommand):
 
 
 def plugin_loaded():
-    """Warm the model so the first lookup does not pay the cold-load cost."""
+    """Optionally preload the model. Off by default.
+
+    Loading gemma3:4b costs 3830 MiB of VRAM and it stays resident — on a card
+    that also draws the desktop that is not something to do just because an
+    editor opened. Opt in only if the GPU has room to spare (#31).
+    """
     def warm():
-        if not _settings().get("warm_up_on_start", True):
+        if not _settings().get("warm_up_on_start", False):
             return
         _, client = _make_translator()
         client.warm_up()
