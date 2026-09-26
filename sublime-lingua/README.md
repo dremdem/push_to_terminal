@@ -28,8 +28,10 @@ text you want to read in an editor:
 | `local backends` | местных прикрытий | локальные бэкенды |
 | `Copper wire has a lead core.` | Медная проволока имеет ядро **(свинец потерян)** | Медная проволока имеет сердечник из свинца |
 
-`gemma3:4b` costs ~400 ms per sentence, fits in 8 GB of VRAM alongside
-`voice-paste`'s whisper container, and keeps terminology intact.
+`gemma3:4b` costs ~400 ms per sentence and keeps terminology intact. It is
+**3.8 GB resident** in VRAM while loaded — on an 8 GB card that also draws your
+desktop, that is most of the headroom, which is why it is loaded lazily and
+released quickly (see below).
 
 Full benchmark: [issue #23](https://github.com/dremdem/push_to_terminal/issues/23).
 
@@ -110,10 +112,10 @@ under two different hints is two different answers.
 | `url` | `http://localhost:11434` | Where Ollama listens |
 | `model` | `gemma3:4b` | Any model Ollama has pulled |
 | `timeout` | `20.0` | Seconds to wait for an answer |
-| `keep_alive` | `"30m"` | How long Ollama holds the model in VRAM |
+| `keep_alive` | `"5m"` | How long Ollama holds the model in VRAM |
 | `hint` | `""` | What the text is about, applied to every translation |
 | `hints` | *five presets* | Offered by *Translate with a hint…* |
-| `warm_up_on_start` | `true` | Load the model when Sublime starts |
+| `warm_up_on_start` | `false` | Preload the model when Sublime starts |
 | `cache_path` | `~/.cache/sublime-lingua/cache.sqlite3` | Translation cache |
 
 Translations run at `temperature: 0`, so they are deterministic and cached
@@ -159,6 +161,31 @@ at the pre-reload objects, so a reloaded `lingua.py` calling into a stale
 `lingua_core` fails with an arity error that disappears on restart and is
 invisible to the tests. A test asserts the import style to keep it from coming
 back.
+
+## What it costs while idle
+
+Nothing, by default. The model is loaded by your **first translation**, not by
+opening the editor, and Ollama releases it five minutes after the last one.
+
+That matters more than it sounds. `gemma3:4b` occupies 3830 MiB, and the same
+GPU draws your desktop:
+
+```
+total       8188 MiB
+gemma3:4b   3830 MiB
+whisper      394 MiB   (voice-paste's container, if running)
+desktop     ~1700 MiB  (GNOME Shell, Chrome, …)
+─────────────────────
+free        1865 MiB
+```
+
+Below roughly 2 GB free the driver starts moving buffers between VRAM and system
+RAM over PCIe, and the whole desktop stutters. Unloading the model measured
+1874 → 5701 MiB free.
+
+The price of lazy loading is ~3 s on the first translation after a pause. If
+your GPU has room to spare, set `warm_up_on_start` to `true` and `keep_alive`
+higher to buy that back.
 
 ## How good is it, really
 
